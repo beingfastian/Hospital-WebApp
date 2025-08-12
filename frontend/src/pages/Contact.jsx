@@ -22,11 +22,11 @@ const Contact = () => {
             Bhubaneswar,Odisha-751024
           </p>
           <p className="text-gray-500">
-            Tel:+91 82490-01710 <br />
-            Email: abhijitnanda8249@gmail.com{" "}
+            Tel:+92 3348400517 <br />
+            Email: Siddiquehospital@gmail.com {" "}
           </p>
           <p className="font-semibold text-lg text-gray-600">
-            CAREERS AT PRESCRIPTO
+            CAREERS AT Siddique Hospital
           </p>
           <p className="text-gray-500">
             Learn more about our teams and job openings.

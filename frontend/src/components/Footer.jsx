@@ -1,5 +1,6 @@
 import React from "react";
 import { assets } from "../assets/assets";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 
 const Footer = () => {
   return (
@@ -29,8 +30,26 @@ const Footer = () => {
         <div>
           <p className="text-xl font-medium mb-5">GET IN TOUCH</p>
           <ul className="flex flex-col gap-2 text-gray-600">
-            <li>+91-82490-01710</li>
-            <li>abhijitnanda8249@gmail.com</li>
+            <li>+92 3348400517</li>
+            <li>Siddiquehospital@gmail.com</li>
+            <li className="flex gap-4 mt-2">
+              <a
+                href="https://www.facebook.com/share/1LVbk5wJp1/?mibextid=wwXIfr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-2xl hover:text-blue-600 transition-colors"
+              >
+                <FaFacebook />
+              </a>
+              <a
+                href="https://www.instagram.com/siddique.hospital?igsh=b2I4MTRqYnVnMDdi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-2xl hover:text-pink-600 transition-colors"
+              >
+                <FaInstagram />
+              </a>
+            </li>
           </ul>
         </div>
       </div>
@@ -38,7 +57,7 @@ const Footer = () => {
         {/* Copyright Text */}
         <hr />
         <p className="py-5 text-sm text-center">
-          Copyright 2024@ Prescripto - All Rights Reserved.
+          Copyright 2025@Siddique Hospital - All Rights Reserved.
         </p>
       </div>
     </div>
