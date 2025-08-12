@@ -18,8 +18,8 @@ const Contact = () => {
         <div className="flex flex-col justify-center items-start gap-6">
           <p className="font-semibold text-xl text-gray-600">OUR OFFICE</p>
           <p className="text-gray-500">
-            Chndrasekharpur <br />
-            Bhubaneswar,Odisha-751024
+            Civil Lines<br />
+            Lahore-Sargodha Road, Sheikhupura
           </p>
           <p className="text-gray-500">
             Tel:+92 3348400517 <br />
