@@ -6,10 +6,11 @@ import { AdminContext } from "./context/AdminContext";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import { Route, Routes } from "react-router-dom";
-import Dashbaord from "./pages/Admin/Dashboard.jsx";
+import Dashboard from "./pages/Admin/Dashboard.jsx";
 import AllAppointments from "./pages/Admin/AllAppointments.jsx";
 import AddDoctor from "./pages/Admin/AddDoctor.jsx";
 import DoctorsList from "./pages/Admin/DoctorsList.jsx";
+import Settings from "./pages/Admin/Settings.jsx"; // NEW
 import { DoctorContext } from "./context/DoctorContext.jsx";
 import DoctorDashboard from "./pages/Doctor/DoctorDashboard.jsx";
 import DoctorAppointments from "./pages/Doctor/DoctorAppointments.jsx";
@@ -26,10 +27,11 @@ const App = () => {
         <Sidebar />
         <Routes>
           {/* Admin Routes */}
-          <Route path="/" element={<Dashbaord />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/all-appointments" element={<AllAppointments />} />
           <Route path="/add-doctor" element={<AddDoctor />} />
           <Route path="/doctors-list" element={<DoctorsList />} />
+          <Route path="/settings" element={<Settings />} /> {/* NEW */}
 
           {/* Doctor Routes */}
           <Route path="/doctor" element={<DoctorDashboard />} />

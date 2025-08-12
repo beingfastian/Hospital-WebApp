@@ -1,9 +1,13 @@
+// ================================================
+// UPDATED: frontend/src/pages/MyProfile.jsx
+// ================================================
 import React, { useContext, useState } from "react";
 import { AppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { FaWhatsapp } from "react-icons/fa";
 
 const MyProfile = () => {
   const { userData, setUserData, backendUrl, token, loadUserProfileData } =
@@ -11,9 +15,11 @@ const MyProfile = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [image, setImage] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(userData?.whatsappEnabled || false);
+  const [whatsappNumber, setWhatsappNumber] = useState(userData?.whatsappNumber || userData?.phone || "");
 
   const updateUserProfileData = async () => {
-    setLoading(true); // Start loading
+    setLoading(true);
     try {
       const formData = new FormData();
       formData.append("name", userData.name);
@@ -21,6 +27,8 @@ const MyProfile = () => {
       formData.append("address", JSON.stringify(userData.address));
       formData.append("dob", userData.dob);
       formData.append("gender", userData.gender);
+      formData.append("whatsappEnabled", whatsappEnabled);
+      formData.append("whatsappNumber", whatsappNumber);
       image && formData.append("image", image);
 
       const { data } = await axios.post(
@@ -41,7 +49,7 @@ const MyProfile = () => {
       console.error(error);
       toast.error(error.message);
     } finally {
-      setLoading(false); // End loading
+      setLoading(false);
     }
   };
 
@@ -178,6 +186,67 @@ const MyProfile = () => {
             )}
           </div>
         </div>
+        
+        {/* WhatsApp Settings Section */}
+        <div className="mt-4">
+          <p className="text-neutral-500 underline mt-3">WHATSAPP NOTIFICATIONS</p>
+          <div className="mt-3 bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="flex items-center gap-3 mb-3">
+              <FaWhatsapp className="text-green-500 text-2xl" />
+              <div className="flex-1">
+                <p className="font-medium text-neutral-700">WhatsApp Updates</p>
+                <p className="text-sm text-gray-500">Receive appointment confirmations and reminders on WhatsApp</p>
+              </div>
+              {isEdit ? (
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={whatsappEnabled}
+                    onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+              ) : (
+                <span className={`px-3 py-1 rounded-full text-sm ${whatsappEnabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                  {whatsappEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              )}
+            </div>
+            
+            {whatsappEnabled && (
+              <div className="mt-3">
+                <label className="text-sm font-medium text-neutral-700">WhatsApp Number</label>
+                {isEdit ? (
+                  <div>
+                    <input
+                      type="tel"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="e.g., +923001234567"
+                      className="mt-1 w-full px-3 py-2 bg-white border border-gray-300 rounded-md outline-primary"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +92 for Pakistan)</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 mt-1">{whatsappNumber || 'Not set'}</p>
+                )}
+              </div>
+            )}
+            
+            {whatsappEnabled && !isEdit && (
+              <div className="mt-3 p-3 bg-white rounded-md">
+                <p className="text-sm text-gray-600 mb-2">Send these commands to manage appointments:</p>
+                <div className="space-y-1">
+                  <p className="text-xs"><span className="font-mono bg-gray-100 px-1 rounded">STATUS</span> - Check appointment status</p>
+                  <p className="text-xs"><span className="font-mono bg-gray-100 px-1 rounded">CANCEL</span> - Cancel appointment</p>
+                  <p className="text-xs"><span className="font-mono bg-gray-100 px-1 rounded">HELP</span> - Get help</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="mt-10">
           {isEdit ? (
             <button

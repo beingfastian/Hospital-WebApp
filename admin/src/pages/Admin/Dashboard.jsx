@@ -1,18 +1,40 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
 import { assets } from "../../assets/assets.js";
 import { AppContext } from "../../context/AppContext.jsx";
+import { FaWhatsapp, FaEnvelope } from "react-icons/fa";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 const Dashboard = () => {
-  const { aToken, getDashData, dashData, cancelAppointment } =
+  const { aToken, getDashData, dashData, cancelAppointment, backendUrl } =
     useContext(AdminContext);
   const { slotDateFormat } = useContext(AppContext);
+  const [whatsappStats, setWhatsappStats] = useState({
+    enabledUsers: 0,
+    todayNotifications: 0
+  });
+
+  const getWhatsAppStats = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + "/api/admin/whatsapp-stats", {
+        headers: { aToken }
+      });
+      if (data.success) {
+        setWhatsappStats(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching WhatsApp stats:", error);
+    }
+  };
 
   useEffect(() => {
     if (aToken) {
       getDashData();
+      getWhatsAppStats();
     }
   }, [aToken]);
+
   return (
     dashData && (
       <div className="m-5">
@@ -44,12 +66,34 @@ const Dashboard = () => {
               <p className="text-gray-400">Patients</p>
             </div>
           </div>
+          <div className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white p-4 min-w-52 rounded border-2 border-green-500 cursor-pointer hover:scale-105 transition-all">
+            <FaWhatsapp className="text-5xl opacity-90" />
+            <div>
+              <p className="text-xl font-semibold">
+                {whatsappStats.enabledUsers}
+              </p>
+              <p className="text-green-100">WhatsApp Enabled</p>
+              <p className="text-xs text-green-100 mt-1">
+                {whatsappStats.todayNotifications} sent today
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white">
-          <div className="flex items-center gap-2.5 px-4 py-4 mt-10 rounded-t border">
-            <img src={assets.list_icon} alt="" />
-            <p className="font-semibold">Lastest Bookings</p>
+          <div className="flex items-center justify-between px-4 py-4 mt-10 rounded-t border">
+            <div className="flex items-center gap-2.5">
+              <img src={assets.list_icon} alt="" />
+              <p className="font-semibold">Latest Bookings</p>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1 text-gray-600">
+                <FaWhatsapp className="text-green-500" /> WhatsApp
+              </span>
+              <span className="flex items-center gap-1 text-gray-600">
+                <FaEnvelope className="text-blue-500" /> Email
+              </span>
+            </div>
           </div>
           <div className="pt-4 border border-t-0">
             {dashData.latestAppointments.length !== 0 ? (
@@ -68,8 +112,17 @@ const Dashboard = () => {
                       {item.docData.name}
                     </p>
                     <p className="text-gray-600">
-                      {slotDateFormat(item.slotDate)} ,{item.slotTime}
+                      Patient: {item.userData.name}
                     </p>
+                    <p className="text-gray-600">
+                      {slotDateFormat(item.slotDate)}, {item.slotTime}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {item.userData.whatsappEnabled && (
+                      <FaWhatsapp className="text-green-500" title="WhatsApp enabled" />
+                    )}
+                    <FaEnvelope className="text-blue-500" title="Email sent" />
                   </div>
                   {item.cancelled ? (
                     <p className="text-red-400 text-sm font-medium">
@@ -92,7 +145,7 @@ const Dashboard = () => {
             ) : (
               <div className="flex items-center px-6 py-3 gap-3 hover:bg-gray-100">
                 <h1 className="text-xl font-semibold text-red-500">
-                  No Appointmets Booked
+                  No Appointments Booked
                 </h1>
               </div>
             )}

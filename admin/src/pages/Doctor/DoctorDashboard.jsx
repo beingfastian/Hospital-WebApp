@@ -2,6 +2,7 @@ import React, { useContext, useEffect } from "react";
 import { DoctorContext } from "../../context/DoctorContext";
 import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
+import { FaWhatsapp, FaEnvelope } from "react-icons/fa";
 
 const DoctorDashboard = () => {
   const {
@@ -12,11 +13,13 @@ const DoctorDashboard = () => {
     cancelAppointment,
   } = useContext(DoctorContext);
   const { slotDateFormat, currency } = useContext(AppContext);
+  
   useEffect(() => {
     if (dToken) {
       getDashData();
     }
   }, [dToken]);
+  
   return (
     dashData && (
       <div className="m-5">
@@ -51,9 +54,19 @@ const DoctorDashboard = () => {
         </div>
 
         <div className="bg-white">
-          <div className="flex items-center gap-2.5 px-4 py-4 mt-10 rounded-t border">
-            <img src={assets.list_icon} alt="" />
-            <p className="font-semibold">Lastest Bookings</p>
+          <div className="flex items-center justify-between px-4 py-4 mt-10 rounded-t border">
+            <div className="flex items-center gap-2.5">
+              <img src={assets.list_icon} alt="" />
+              <p className="font-semibold">Latest Bookings</p>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="flex items-center gap-1 text-gray-600">
+                <FaWhatsapp className="text-green-500" /> WhatsApp
+              </span>
+              <span className="flex items-center gap-1 text-gray-600">
+                <FaEnvelope className="text-blue-500" /> Email
+              </span>
+            </div>
           </div>
           <div className="pt-4 border border-t-0">
             {dashData.latestAppointments.length !== 0 ? (
@@ -72,8 +85,15 @@ const DoctorDashboard = () => {
                       {item.userData.name}
                     </p>
                     <p className="text-gray-600">
-                      {slotDateFormat(item.slotDate)} ,{item.slotTime}
+                      {slotDateFormat(item.slotDate)}, {item.slotTime}
                     </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {item.userData?.whatsappEnabled ? (
+                      <FaWhatsapp className="text-green-500" title="WhatsApp enabled" />
+                    ) : (
+                      <FaEnvelope className="text-blue-500" title="Email only" />
+                    )}
                   </div>
                   {item.cancelled ? (
                     <p className="text-red-400 text-sm font-medium">
@@ -104,7 +124,7 @@ const DoctorDashboard = () => {
             ) : (
               <div className="flex items-center px-6 py-3 gap-3 hover:bg-gray-100">
                 <h1 className="text-xl font-semibold text-red-500">
-                  No Appointmets Booked
+                  No Appointments Booked
                 </h1>
               </div>
             )}

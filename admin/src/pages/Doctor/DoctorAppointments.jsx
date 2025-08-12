@@ -2,6 +2,7 @@ import React, { useContext, useEffect } from "react";
 import { DoctorContext } from "../../context/DoctorContext";
 import { AppContext } from "../../context/AppContext";
 import { assets } from "../../assets/assets";
+import { FaWhatsapp, FaEnvelope } from "react-icons/fa";
 
 const DoctorAppointments = () => {
   const {
@@ -20,20 +21,21 @@ const DoctorAppointments = () => {
   return (
     <div className="w-full max-w-6xl m-5">
       <p className="mb-3 text-lg font-medium">All Appointments</p>
-      <div className="bg-white border rounded texxt-sm max-h-[80vh] overflow-y-scroll min-h-[50vh]">
-        <div className="max-sm:hidden grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr] gap-1 py-3 px-6 border-b">
+      <div className="bg-white border rounded text-sm max-h-[80vh] overflow-y-scroll min-h-[50vh]">
+        <div className="max-sm:hidden grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr_1fr] gap-1 py-3 px-6 border-b bg-gray-50">
           <p>#</p>
           <p>Patient</p>
           <p>Payment</p>
           <p>Age</p>
           <p>Date & Time</p>
           <p>Fee</p>
+          <p>Notif</p>
           <p>Action</p>
         </div>
         {appointments.reverse().map((item, index) => (
           <div
             key={index}
-            className="flex flex-wrap justify-between max-sm:gap-5 max-sm:text-base sm:grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr] gap-1 items-center text-gray-500py-3 px-6 py-3 border-b hover:bg-gray-50"
+            className="flex flex-wrap justify-between max-sm:gap-5 max-sm:text-base sm:grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr_1fr] gap-1 items-center text-gray-500 py-3 px-6 border-b hover:bg-gray-50"
           >
             <p className="max-sm:hidden">{index + 1}</p>
             <div className="flex items-center gap-2">
@@ -42,10 +44,15 @@ const DoctorAppointments = () => {
                 src={item.userData.image}
                 alt=""
               />
-              <p>{item.userData.name}</p>
+              <div>
+                <p>{item.userData.name}</p>
+                {item.userData.whatsappEnabled && (
+                  <p className="text-xs text-green-600">{item.userData.whatsappNumber}</p>
+                )}
+              </div>
             </div>
             <div>
-              <p className="text-sm inline border border-primary px-2  rounded-full">
+              <p className="text-sm inline border border-primary px-2 rounded-full">
                 {item.payment ? "Online" : "Cash"}
               </p>
             </div>
@@ -57,6 +64,13 @@ const DoctorAppointments = () => {
               {currency}
               {item.amount}
             </p>
+            <div className="flex items-center gap-1">
+              {item.userData?.whatsappEnabled ? (
+                <FaWhatsapp className="text-green-500 text-lg" title="WhatsApp" />
+              ) : (
+                <FaEnvelope className="text-blue-500 text-lg" title="Email" />
+              )}
+            </div>
             {item.cancelled ? (
               <p className="text-red-400 text-sm font-medium">Cancelled</p>
             ) : item.isCompleted ? (

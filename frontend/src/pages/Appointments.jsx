@@ -5,6 +5,7 @@ import { assets } from "../assets/assets.js";
 import RelatedDoctors from "../components/RelatedDoctors.jsx";
 import { toast } from "react-toastify";
 import { Loader2 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import axios from "axios";
 
 const Appointments = () => {
@@ -12,7 +13,7 @@ const Appointments = () => {
   const [isBooking, setIsBooking] = useState(false);
   const { docId } = useParams();
   const navigate = useNavigate();
-  const { doctors, currencySymbol, backendUrl, token, getDoctorsData } =
+  const { doctors, currencySymbol, backendUrl, token, getDoctorsData, userData } =
     useContext(AppContext);
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const [docSlots, setDocSlots] = useState([]);
@@ -118,6 +119,14 @@ const Appointments = () => {
 
       if (data.success) {
         toast.success(data.message);
+        
+        // Show WhatsApp notification if enabled
+        if (userData?.whatsappEnabled) {
+          toast.info("WhatsApp confirmation sent!", {
+            icon: <FaWhatsapp className="text-green-500" />
+          });
+        }
+        
         getDoctorsData();
         navigate("/my-appointments");
       } else {
@@ -184,6 +193,14 @@ const Appointments = () => {
                 {currencySymbol} {docInfo.fee}
               </span>
             </p>
+            
+            {/* WhatsApp Notification Badge */}
+            {userData?.whatsappEnabled && (
+              <div className="mt-3 inline-flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full">
+                <FaWhatsapp className="text-green-500" />
+                <span className="text-sm text-green-700">WhatsApp notifications enabled</span>
+              </div>
+            )}
           </div>
         </div>
 
