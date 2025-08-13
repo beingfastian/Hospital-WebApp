@@ -9,8 +9,11 @@ import { Route, Routes } from "react-router-dom";
 import Dashboard from "./pages/Admin/Dashboard.jsx";
 import AllAppointments from "./pages/Admin/AllAppointments.jsx";
 import AddDoctor from "./pages/Admin/AddDoctor.jsx";
-import DoctorsList from "./pages/Admin/DoctorsList.jsx";
-import Settings from "./pages/Admin/Settings.jsx"; // NEW
+import ManageDoctors from "./pages/Admin/ManageDoctors.jsx";
+import AddPatient from "./pages/Admin/AddPatient.jsx";
+import ManagePatients from "./pages/Admin/ManagePatients.jsx";
+import Settings from "./pages/Admin/Settings.jsx";
+import BookAppointmentForPatient from "./pages/Admin/BookAppointmentForPatient.jsx";
 import { DoctorContext } from "./context/DoctorContext.jsx";
 import DoctorDashboard from "./pages/Doctor/DoctorDashboard.jsx";
 import DoctorAppointments from "./pages/Doctor/DoctorAppointments.jsx";
@@ -19,6 +22,7 @@ import DoctorProfile from "./pages/Doctor/DoctorProfile.jsx";
 const App = () => {
   const { aToken } = useContext(AdminContext);
   const { dToken } = useContext(DoctorContext);
+  
   return aToken || dToken ? (
     <div className="bg-[#F8F9FD]">
       <ToastContainer />
@@ -28,10 +32,21 @@ const App = () => {
         <Routes>
           {/* Admin Routes */}
           <Route path="/" element={<Dashboard />} />
+          
+          {/* Appointment Management */}
           <Route path="/all-appointments" element={<AllAppointments />} />
+          <Route path="/book-appointment" element={<BookAppointmentForPatient />} />
+          
+          {/* Doctor Management */}
+          <Route path="/doctors" element={<ManageDoctors />} />
           <Route path="/add-doctor" element={<AddDoctor />} />
-          <Route path="/doctors-list" element={<DoctorsList />} />
-          <Route path="/settings" element={<Settings />} /> {/* NEW */}
+          
+          {/* Patient Management */}
+          <Route path="/patients" element={<ManagePatients />} />
+          <Route path="/add-patient" element={<AddPatient />} />
+          
+          {/* Settings */}
+          <Route path="/settings" element={<Settings />} />
 
           {/* Doctor Routes */}
           <Route path="/doctor" element={<DoctorDashboard />} />

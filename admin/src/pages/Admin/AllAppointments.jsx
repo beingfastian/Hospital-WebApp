@@ -2,11 +2,10 @@ import React, { useContext, useEffect, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
 import { AppContext } from "../../context/AppContext.jsx";
 import { assets } from "../../assets/assets.js";
-import { FaWhatsapp, FaEnvelope, FaFilter } from "react-icons/fa";
+import { FaWhatsapp, FaEnvelope, FaFilter, FaEye } from "react-icons/fa";
 
 const AllAppointments = () => {
-  const { aToken, appointments, getAllAppointments, cancelAppointment } =
-    useContext(AdminContext);
+  const { aToken, appointments, getAllAppointments } = useContext(AdminContext);
   const { calculateAge, slotDateFormat, currency } = useContext(AppContext);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterNotification, setFilterNotification] = useState("all");
@@ -32,9 +31,24 @@ const AllAppointments = () => {
     return true;
   });
 
+  const getStatusBadge = (item) => {
+    if (item.cancelled) {
+      return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Cancelled</span>;
+    } else if (item.isCompleted) {
+      return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Completed</span>;
+    } else {
+      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Pending</span>;
+    }
+  };
+
   return (
     <div className="w-full max-w-6xl m-5">
-      <p className="mb-3 text-lg font-medium">All Appointments</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-lg font-medium">All Appointments</p>
+        <div className="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-full">
+          📋 View Only - Doctors manage their appointments
+        </div>
+      </div>
       
       {/* Filters */}
       <div className="bg-white p-4 rounded border mb-4">
@@ -86,7 +100,7 @@ const AllAppointments = () => {
           <p>Doctor Name</p>
           <p>Fee</p>
           <p>Notif</p>
-          <p>Action</p>
+          <p>Status</p>
         </div>
         {filteredAppointments.map((item, index) => (
           <div
@@ -127,20 +141,23 @@ const AllAppointments = () => {
                 <FaEnvelope className="text-blue-500" title="Email" />
               )}
             </div>
-            {item.cancelled ? (
-              <p className="text-red-400 text-sm font-medium">Cancelled</p>
-            ) : !item.isCompleted ? (
-              <img
-                src={assets.cancel_icon}
-                onClick={() => cancelAppointment(item._id)}
-                className="w-10 cursor-pointer"
-                alt=""
-              />
-            ) : (
-              <p className="text-green-400 text-sm font-medium">Completed</p>
-            )}
+            <div className="flex items-center justify-center">
+              {getStatusBadge(item)}
+            </div>
           </div>
         ))}
+      </div>
+      
+      {/* Info Message */}
+      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center gap-2 text-blue-800">
+          <FaEye />
+          <span className="font-medium">Admin View Only</span>
+        </div>
+        <p className="text-sm text-blue-700 mt-1">
+          Appointments can only be managed (completed/cancelled) by the respective doctors. 
+          Use the "Book for Patient" feature to create new appointments.
+        </p>
       </div>
     </div>
   );

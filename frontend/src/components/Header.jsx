@@ -1,7 +1,18 @@
 import React from "react";
 import { assets } from "../assets/assets";
+import { FaWhatsapp } from "react-icons/fa";
 
 const Header = () => {
+  // WhatsApp contact details
+  const whatsappNumber = "+923348400517"; // Replace with your hospital's WhatsApp number
+  const whatsappMessage = "Hello! I would like to request an appointment. Please provide me with available times and doctor information.";
+  
+  const handleWhatsAppClick = () => {
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+    const whatsappUrl = `https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <div className="flex flex-col md:flex-row flex-wrap bg-primary rounded-lg px-6 md:px-10 lg:px-20">
       {/* Left Side */}
@@ -12,18 +23,24 @@ const Header = () => {
         <div className="flex flex-col md:flex-row items-center gap-3 text-white text-sm font-light">
           <img className="w-28" src={assets.group_profiles} alt="Group Image" />
           <p>
-            Simply browse through our extensive list of trusted doctors,{" "}
+            Simply contact us via WhatsApp to schedule your appointment with our{" "}
             <br className="hidden sm:block" />
-            schedule your appointment hassle-free.
+            trusted doctors. Quick, easy, and hassle-free.
           </p>
         </div>
-        <a
-          href="#speciality"
-          className="flex items-center gap-2 bg-white px-8 py-3 rounded-full text-gray-600 text-sm m-auto md:m-0 hover:scale-105 transition-all duration-300"
+        <button
+          onClick={handleWhatsAppClick}
+          className="flex items-center gap-3 bg-green-500 hover:bg-green-600 px-8 py-4 rounded-full text-white text-lg font-medium m-auto md:m-0 hover:scale-105 transition-all duration-300 shadow-lg"
         >
-          Book Appointment{" "}
-          <img className="w-3" src={assets.arrow_icon} alt="arrow_icon" />
-        </a>
+          <FaWhatsapp className="text-2xl" />
+          Request Appointment
+        </button>
+        
+        {/* Additional contact info */}
+        <div className="flex items-center gap-2 text-white text-sm opacity-90 mt-2">
+          <FaWhatsapp className="text-green-300" />
+          <span>WhatsApp: {whatsappNumber}</span>
+        </div>
       </div>
 
       {/* Right Side */}
