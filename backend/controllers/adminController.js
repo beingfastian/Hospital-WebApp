@@ -5,6 +5,12 @@ import doctorModel from "../model/doctorModel.js";
 import jwt from "jsonwebtoken";
 import appointmentModel from "../model/appointmentModel.js";
 import userModel from "../model/userModel.js";
+import { 
+  sendUserAppointmentConfirmation, 
+  sendDoctorAppointmentNotification, 
+  sendAdminAppointmentNotification 
+} from "../config/emailService.js";
+import { sendWhatsAppConfirmation } from "../config/whatsappService.js";
 
 // API for adding doctors
 const addDoctor = async (req, res) => {
@@ -50,6 +56,12 @@ const addDoctor = async (req, res) => {
       });
     }
 
+    // Check if doctor with email already exists
+    const existingDoctor = await doctorModel.findOne({ email });
+    if (existingDoctor) {
+      return res.json({ success: false, message: "Doctor with this email already exists" });
+    }
+
     // Hashing doctor password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -79,6 +91,419 @@ const addDoctor = async (req, res) => {
     await newDoctor.save();
 
     res.json({ success: true, message: "Doctor Added Successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to update doctor
+const updateDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const {
+      name,
+      email,
+      experience,
+      fee,
+      about,
+      speciality,
+      degree,
+      address,
+      available
+    } = req.body;
+
+    // Validate input
+    if (!name || !email || !experience || !fee || !about || !speciality || !degree || !address) {
+      return res.json({ success: false, message: "Please fill all required fields" });
+    }
+
+    if (!validator.isEmail(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" });
+    }
+
+    // Check if doctor exists
+    const doctor = await doctorModel.findById(doctorId);
+    if (!doctor) {
+      return res.json({ success: false, message: "Doctor not found" });
+    }
+
+    // Check if email is taken by another doctor
+    const emailExists = await doctorModel.findOne({ 
+      email, 
+      _id: { $ne: doctorId } 
+    });
+    if (emailExists) {
+      return res.json({ success: false, message: "Email already taken by another doctor" });
+    }
+
+    // Update doctor
+    await doctorModel.findByIdAndUpdate(doctorId, {
+      name,
+      email,
+      experience,
+      fee: Number(fee),
+      about,
+      speciality,
+      degree,
+      address,
+      available: available !== undefined ? available : doctor.available
+    });
+
+    res.json({ success: true, message: "Doctor updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to delete doctor
+const deleteDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    // Check if doctor exists
+    const doctor = await doctorModel.findById(doctorId);
+    if (!doctor) {
+      return res.json({ success: false, message: "Doctor not found" });
+    }
+
+    // Check for active appointments
+    const activeAppointments = await appointmentModel.find({
+      docId: doctorId,
+      cancelled: false,
+      isCompleted: false
+    });
+
+    if (activeAppointments.length > 0) {
+      return res.json({ 
+        success: false, 
+        message: `Cannot delete doctor. There are ${activeAppointments.length} active appointments.` 
+      });
+    }
+
+    // Delete doctor
+    await doctorModel.findByIdAndDelete(doctorId);
+
+    res.json({ success: true, message: "Doctor deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API for adding patients
+const addPatient = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      phone,
+      dob,
+      gender,
+      address,
+      whatsappEnabled,
+      whatsappNumber
+    } = req.body;
+
+    const imageFile = req.file;
+
+    // Validate required fields
+    if (!name || !email || !password || !phone || !dob || !address) {
+      return res.json({ success: false, message: "Please fill all required fields" });
+    }
+
+    // Validate email
+    if (!validator.isEmail(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" });
+    }
+
+    // Validate password
+    if (password.length < 8) {
+      return res.json({ 
+        success: false, 
+        message: "Password should be at least 8 characters long" 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser) {
+      return res.json({ success: false, message: "Patient with this email already exists" });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Upload image if provided
+    let imageUrl = null;
+    if (imageFile) {
+      const imageUpload = await cloudinary.uploader.upload(imageFile.path, {
+        resource_type: "image",
+      });
+      imageUrl = imageUpload.secure_url;
+    }
+
+    const patientData = {
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      dob,
+      gender: gender || "Male",
+      address: JSON.parse(address),
+      whatsappEnabled: whatsappEnabled === 'true' || whatsappEnabled === true,
+      whatsappNumber: whatsappNumber || phone,
+      ...(imageUrl && { image: imageUrl })
+    };
+
+    const newPatient = new userModel(patientData);
+    await newPatient.save();
+
+    res.json({ success: true, message: "Patient added successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get all patients
+const getAllPatients = async (req, res) => {
+  try {
+    const patients = await userModel.find({}).select("-password");
+    res.json({ success: true, patients });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to update patient
+const updatePatient = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      dob,
+      gender,
+      address,
+      whatsappEnabled,
+      whatsappNumber
+    } = req.body;
+
+    // Validate input
+    if (!name || !email || !phone || !dob || !gender) {
+      return res.json({ success: false, message: "Please fill all required fields" });
+    }
+
+    if (!validator.isEmail(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" });
+    }
+
+    // Check if patient exists
+    const patient = await userModel.findById(patientId);
+    if (!patient) {
+      return res.json({ success: false, message: "Patient not found" });
+    }
+
+    // Check if email is taken by another patient
+    const emailExists = await userModel.findOne({ 
+      email, 
+      _id: { $ne: patientId } 
+    });
+    if (emailExists) {
+      return res.json({ success: false, message: "Email already taken by another patient" });
+    }
+
+    // Update patient
+    await userModel.findByIdAndUpdate(patientId, {
+      name,
+      email,
+      phone,
+      dob,
+      gender,
+      address,
+      whatsappEnabled: whatsappEnabled === 'true' || whatsappEnabled === true,
+      whatsappNumber: whatsappNumber || phone
+    });
+
+    res.json({ success: true, message: "Patient updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to delete patient
+const deletePatient = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    // Check if patient exists
+    const patient = await userModel.findById(patientId);
+    if (!patient) {
+      return res.json({ success: false, message: "Patient not found" });
+    }
+
+    // Delete all appointments for this patient
+    await appointmentModel.deleteMany({ userId: patientId });
+
+    // Delete patient
+    await userModel.findByIdAndDelete(patientId);
+
+    res.json({ success: true, message: "Patient and associated appointments deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to book appointment for patient (admin booking)
+const bookAppointmentForPatient = async (req, res) => {
+  try {
+    const {
+      patientSelectionMode,
+      selectedPatientId,
+      newPatientData,
+      docId,
+      slotDate,
+      slotTime
+    } = req.body;
+
+    let patientId = selectedPatientId;
+    let userData;
+
+    // If booking for new patient, create the patient first
+    if (patientSelectionMode === "new") {
+      // Validate new patient data
+      const { name, email, phone, dob, gender, address, whatsappEnabled, whatsappNumber } = newPatientData;
+      
+      if (!name || !email || !phone || !dob || !address.line1) {
+        return res.json({ success: false, message: "Please fill all required patient fields" });
+      }
+
+      if (!validator.isEmail(email)) {
+        return res.json({ success: false, message: "Please enter a valid email" });
+      }
+
+      // Check if user already exists
+      const existingUser = await userModel.findOne({ email });
+      if (existingUser) {
+        return res.json({ success: false, message: "Patient with this email already exists" });
+      }
+
+      // Create new patient with default password
+      const defaultPassword = "Patient123"; // Admin should inform patient to change this
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+
+      const patientData = {
+        name,
+        email,
+        password: hashedPassword,
+        phone,
+        dob,
+        gender,
+        address,
+        whatsappEnabled: whatsappEnabled || false,
+        whatsappNumber: whatsappNumber || phone
+      };
+
+      const newPatient = new userModel(patientData);
+      const savedPatient = await newPatient.save();
+      patientId = savedPatient._id.toString();
+      userData = savedPatient.toObject();
+      delete userData.password;
+    } else {
+      // Use existing patient
+      userData = await userModel.findById(selectedPatientId).select("-password");
+      if (!userData) {
+        return res.json({ success: false, message: "Selected patient not found" });
+      }
+    }
+
+    // Get doctor data
+    const docData = await doctorModel.findById(docId).select("-password");
+    if (!docData.available) {
+      return res.json({
+        success: false,
+        message: "Doctor is not available for appointments",
+      });
+    }
+
+    // Check slot availability
+    let slots_booked = docData.slots_booked;
+    if (slots_booked[slotDate]) {
+      if (slots_booked[slotDate].includes(slotTime)) {
+        return res.json({
+          success: false,
+          message: "Selected time slot is not available",
+        });
+      } else {
+        slots_booked[slotDate].push(slotTime);
+      }
+    } else {
+      slots_booked[slotDate] = [slotTime];
+    }
+
+    // Create appointment
+    const appointmentData = {
+      userId: patientId,
+      docId,
+      slotDate,
+      slotTime,
+      userData,
+      docData: docData.toObject(),
+      amount: docData.fee,
+      date: new Date().getTime(),
+    };
+
+    const newAppointment = new appointmentModel(appointmentData);
+    await newAppointment.save();
+
+    // Update doctor's booked slots
+    await doctorModel.findByIdAndUpdate(docId, { slots_booked });
+
+    // Send notifications
+    try {
+      // Send WhatsApp notification if user has WhatsApp enabled
+      if (userData.whatsappEnabled && userData.whatsappNumber) {
+        await sendWhatsAppConfirmation(
+          userData.whatsappNumber,
+          userData.name,
+          docData.name,
+          docData.speciality,
+          slotDate,
+          slotTime,
+          docData.fee,
+          newAppointment._id.toString()
+        );
+      }
+
+      // Send email notifications
+      await sendUserAppointmentConfirmation(
+        userData.email,
+        userData.name,
+        docData.name,
+        docData.speciality,
+        slotDate,
+        slotTime,
+        docData.fee
+      );
+    } catch (notificationError) {
+      console.error('Notification error:', notificationError);
+      // Don't fail the appointment if notifications fail
+    }
+
+    const successMessage = patientSelectionMode === "new" 
+      ? "New patient created and appointment booked successfully" 
+      : "Appointment booked successfully";
+
+    res.json({ success: true, message: successMessage });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
@@ -134,19 +559,22 @@ const appointmentsAdmin = async (req, res) => {
   }
 };
 
-// API to cencel appointment
+// API to cancel appointment
 const appointmentCancel = async (req, res) => {
   try {
     const { appointmentId } = req.body;
     const appointmentData = await appointmentModel.findById(appointmentId);
 
+    if (!appointmentData) {
+      return res.json({ success: false, message: "Appointment not found" });
+    }
+
     await appointmentModel.findByIdAndUpdate(appointmentId, {
       cancelled: true,
     });
 
-    // Releesing doctors slot
+    // Release doctor's slot
     const { docId, slotDate, slotTime } = appointmentData;
-
     const doctorData = await doctorModel.findById(docId);
 
     let slots_booked = doctorData.slots_booked;
@@ -156,6 +584,37 @@ const appointmentCancel = async (req, res) => {
     await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
     res.json({ success: true, message: "Appointment Cancelled" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get WhatsApp statistics
+const getWhatsAppStats = async (req, res) => {
+  try {
+    const enabledUsers = await userModel.countDocuments({ whatsappEnabled: true });
+    
+    // Get today's appointments with WhatsApp enabled users
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    
+    const todayAppointments = await appointmentModel.find({
+      date: { $gte: startOfDay.getTime(), $lte: endOfDay.getTime() }
+    });
+    
+    const todayNotifications = todayAppointments.filter(
+      apt => apt.userData?.whatsappEnabled
+    ).length;
+
+    res.json({
+      success: true,
+      data: {
+        enabledUsers,
+        todayNotifications
+      }
+    });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
@@ -184,9 +643,17 @@ const adminDashboard = async (req, res) => {
 
 export {
   addDoctor,
+  updateDoctor,
+  deleteDoctor,
+  addPatient,
+  getAllPatients,
+  updatePatient,
+  deletePatient,
+  bookAppointmentForPatient,
   loginAdmin,
   allDoctors,
   appointmentsAdmin,
   appointmentCancel,
+  getWhatsAppStats,
   adminDashboard,
 };

@@ -16,6 +16,9 @@ if (isWhatsAppConfigured()) {
     process.env.TWILIO_ACCOUNT_SID,
     process.env.TWILIO_AUTH_TOKEN
   );
+  console.log('✅ Twilio WhatsApp client initialized');
+} else {
+  console.log('⚠️ Twilio WhatsApp configuration incomplete');
 }
 
 // Format date for WhatsApp message
@@ -37,8 +40,18 @@ export const sendWhatsAppConfirmation = async (phoneNumber, userName, doctorName
       return { success: false, message: 'WhatsApp not configured' };
     }
 
+    if (!twilioClient) {
+      throw new Error('Twilio client not initialized');
+    }
+
+    // Ensure phone number has correct format
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber;
+    }
+
     const message = `
-*🏥 Appointment Confirmed - Prescripto*
+*🏥 Appointment Confirmed - Siddique Hospital*
 
 Dear ${userName},
 
@@ -58,13 +71,23 @@ Your appointment has been successfully booked!
 • Reply CANCEL to cancel appointment
 • Reply STATUS to check appointment status
 
-Thank you for choosing Prescripto!
+*📍 Location:*
+Civil Lines, Lahore-Sargodha Road
+Sheikhupura, Pakistan
+
+*📞 Contact:*
+Phone: +923348400517
+WhatsApp: +923348400517
+
+Thank you for choosing Siddique Hospital! 🙏
     `;
+
+    console.log(`Sending WhatsApp message to: ${formattedNumber}`);
 
     const result = await twilioClient.messages.create({
       body: message.trim(),
       from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:${phoneNumber}`
+      to: `whatsapp:${formattedNumber}`
     });
 
     console.log('✅ WhatsApp confirmation sent successfully:', result.sid);
@@ -82,52 +105,143 @@ export const sendWhatsAppReminder = async (phoneNumber, userName, doctorName, ap
       return { success: false, message: 'WhatsApp not configured' };
     }
 
+    if (!twilioClient) {
+      throw new Error('Twilio client not initialized');
+    }
+
+    // Ensure phone number has correct format
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber;
+    }
+
     const message = `
-*⏰ Appointment Reminder - Prescripto*
+*⏰ Appointment Reminder - Siddique Hospital*
 
 Hi ${userName},
 
-This is a reminder for your appointment tomorrow:
+This is a reminder for your appointment:
 
+*📋 Details:*
 • Doctor: Dr. ${doctorName}
 • Date: ${formatDate(appointmentDate)}
 • Time: ${appointmentTime}
 
-Reply STATUS to check details or CANCEL to cancel.
+*📍 Location:*
+Civil Lines, Lahore-Sargodha Road
+Sheikhupura, Pakistan
+
+Please arrive 10 minutes early with valid ID.
+
+Reply STATUS for details or CANCEL to cancel.
+
+📞 Contact: +923348400517
     `;
 
     const result = await twilioClient.messages.create({
       body: message.trim(),
       from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:${phoneNumber}`
+      to: `whatsapp:${formattedNumber}`
     });
 
+    console.log('✅ WhatsApp reminder sent successfully:', result.sid);
     return { success: true, messageId: result.sid };
   } catch (error) {
-    console.error('Error sending reminder:', error.message);
+    console.error('❌ Error sending reminder:', error.message);
     return { success: false, error: error.message };
   }
+};
+
+// Send custom WhatsApp message
+export const sendCustomWhatsAppMessage = async (phoneNumber, message) => {
+  try {
+    if (!isWhatsAppConfigured()) {
+      return { success: false, message: 'WhatsApp not configured' };
+    }
+
+    if (!twilioClient) {
+      throw new Error('Twilio client not initialized');
+    }
+
+    // Ensure phone number has correct format
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber;
+    }
+
+    const result = await twilioClient.messages.create({
+      body: message,
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:${formattedNumber}`
+    });
+
+    console.log('✅ Custom WhatsApp message sent successfully:', result.sid);
+    return { success: true, messageId: result.sid };
+  } catch (error) {
+    console.error('❌ Error sending custom WhatsApp message:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send bulk WhatsApp notifications (for announcements)
+export const sendBulkWhatsAppMessage = async (phoneNumbers, message) => {
+  const results = [];
+  
+  for (const phoneNumber of phoneNumbers) {
+    try {
+      const result = await sendCustomWhatsAppMessage(phoneNumber, message);
+      results.push({ phoneNumber, ...result });
+      
+      // Add delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      results.push({ 
+        phoneNumber, 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+  
+  return results;
 };
 
 // Test WhatsApp connection on startup
 export const testWhatsAppConnection = async () => {
   if (!isWhatsAppConfigured()) {
-    console.log('⚠️  WhatsApp configuration incomplete - WhatsApp disabled');
+    console.log('⚠️ WhatsApp configuration incomplete - WhatsApp disabled');
     return false;
   }
 
   try {
-    console.log('✅ WhatsApp service configured successfully');
-    return true;
+    if (twilioClient) {
+      // Just check if client is configured properly
+      console.log('✅ WhatsApp service configured successfully');
+      return true;
+    } else {
+      throw new Error('Twilio client not initialized');
+    }
   } catch (error) {
     console.error('❌ WhatsApp service configuration failed:', error.message);
     return false;
   }
 };
 
+// Get WhatsApp service status
+export const getWhatsAppStatus = () => {
+  return {
+    configured: isWhatsAppConfigured(),
+    clientInitialized: !!twilioClient,
+    fromNumber: process.env.TWILIO_WHATSAPP_NUMBER || 'Not configured'
+  };
+};
+
 export default {
   sendWhatsAppConfirmation,
   sendWhatsAppReminder,
+  sendCustomWhatsAppMessage,
+  sendBulkWhatsAppMessage,
   testWhatsAppConnection,
+  getWhatsAppStatus,
   isWhatsAppConfigured
 };

@@ -12,12 +12,12 @@ import {
 } from "../config/emailService.js";
 import { sendWhatsAppConfirmation } from "../config/whatsappService.js";
 
-// API to register user
+// API to register user (enhanced with WhatsApp fields)
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, whatsappEnabled, whatsappNumber } = req.body;
 
-    // Validating that any fields are not empty
+    // Validating that required fields are not empty
     if (!name || !password || !email) {
       return res.json({ success: false, message: "Missing Details" });
     }
@@ -52,6 +52,9 @@ const registerUser = async (req, res) => {
       name,
       email,
       password: hashPassword,
+      phone: phone || "00000-00000",
+      whatsappEnabled: whatsappEnabled || false,
+      whatsappNumber: whatsappNumber || phone || "",
     };
 
     const newUser = new userModel(userData);
@@ -104,7 +107,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-// API to update User Profile (UPDATED with WhatsApp fields)
+// API to update User Profile (Enhanced with WhatsApp fields)
 const updateProfile = async (req, res) => {
   try {
     const { userId, name, phone, address, dob, gender, whatsappEnabled, whatsappNumber } = req.body;
@@ -113,9 +116,17 @@ const updateProfile = async (req, res) => {
     if (!name || !phone || !dob || !gender) {
       return res.json({ success: false, message: "Some Data are Missing" });
     }
+
+    // Validate WhatsApp number if WhatsApp is enabled
+    if ((whatsappEnabled === 'true' || whatsappEnabled === true) && !whatsappNumber) {
+      return res.json({ 
+        success: false, 
+        message: "WhatsApp number is required when WhatsApp notifications are enabled" 
+      });
+    }
     
-    // Update basic profile
-    await userModel.findByIdAndUpdate(userId, {
+    // Update basic profile with WhatsApp settings
+    const updateData = {
       name,
       phone,
       address: JSON.parse(address),
@@ -123,7 +134,9 @@ const updateProfile = async (req, res) => {
       gender,
       whatsappEnabled: whatsappEnabled === 'true' || whatsappEnabled === true,
       whatsappNumber: whatsappNumber || phone // Use phone as WhatsApp number if not provided
-    });
+    };
+
+    await userModel.findByIdAndUpdate(userId, updateData);
 
     if (imageFile) {
       // Upload image to cloudinary
@@ -133,6 +146,7 @@ const updateProfile = async (req, res) => {
       const imageURL = imageUpload.secure_url;
       await userModel.findByIdAndUpdate(userId, { image: imageURL });
     }
+
     res.json({ success: true, message: "Profile Updated Successfully" });
   } catch (error) {
     console.error(error);
@@ -140,7 +154,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// API to book Appointment (UPDATED with WhatsApp notification)
+// API to book Appointment (Enhanced with improved notifications)
 const bookAppointment = async (req, res) => {
   try {
     const { userId, docId, slotDate, slotTime } = req.body;
@@ -152,6 +166,7 @@ const bookAppointment = async (req, res) => {
         message: "Doctor is not available for Appointment",
       });
     }
+
     let slots_booked = docData.slots_booked;
 
     // checking for slots availability
@@ -177,18 +192,21 @@ const bookAppointment = async (req, res) => {
       docId,
       slotDate,
       slotTime,
-      userData,
-      docData,
+      userData: userData.toObject(),
+      docData: docData.toObject(),
       amount: docData.fee,
       date: new Date().getTime(),
     };
+
     const newAppointment = new appointmentModel(appointmentData);
     await newAppointment.save();
     await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
-    // Send WhatsApp notification if user has WhatsApp enabled
-    if (userData.whatsappEnabled && userData.whatsappNumber) {
-      try {
+    // Enhanced notification system
+    try {
+      // Send WhatsApp notification if user has WhatsApp enabled
+      if (userData.whatsappEnabled && userData.whatsappNumber) {
+        console.log('Sending WhatsApp notification to:', userData.whatsappNumber);
         await sendWhatsAppConfirmation(
           userData.whatsappNumber,
           userData.name,
@@ -200,15 +218,11 @@ const bookAppointment = async (req, res) => {
           newAppointment._id.toString()
         );
         console.log('WhatsApp notification sent successfully');
-      } catch (whatsappError) {
-        console.error('WhatsApp notification failed:', whatsappError);
-        // Don't fail the appointment if WhatsApp fails
+      } else {
+        console.log('WhatsApp not enabled for user or no WhatsApp number');
       }
-    }
 
-    // Send email notifications
-    try {
-      // Send confirmation email to user
+      // Always send email notifications
       await sendUserAppointmentConfirmation(
         userData.email,
         userData.name,
@@ -230,20 +244,22 @@ const bookAppointment = async (req, res) => {
         docData.fee
       );
 
-      // Send notification email to admin
-      await sendAdminAppointmentNotification(
-        docData.name,
-        userData.name,
-        userData.email,
-        slotDate,
-        slotTime,
-        docData.fee
-      );
+      // Send notification email to admin if configured
+      if (process.env.ADMIN_EMAIL) {
+        await sendAdminAppointmentNotification(
+          docData.name,
+          userData.name,
+          userData.email,
+          slotDate,
+          slotTime,
+          docData.fee
+        );
+      }
 
-      console.log('All appointment emails sent successfully');
-    } catch (emailError) {
-      console.error('Error sending appointment emails:', emailError);
-      // Don't fail the appointment booking if email fails
+      console.log('All appointment notifications sent successfully');
+    } catch (notificationError) {
+      console.error('Error sending appointment notifications:', notificationError);
+      // Don't fail the appointment booking if notifications fail
     }
 
     res.json({ success: true, message: "Appointment booked successfully" });
@@ -298,6 +314,29 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
+// API to get user by WhatsApp number (for WhatsApp webhook)
+const getUserByWhatsApp = async (req, res) => {
+  try {
+    const { whatsappNumber } = req.body;
+    
+    const user = await userModel.findOne({
+      $or: [
+        { whatsappNumber: whatsappNumber },
+        { phone: whatsappNumber }
+      ]
+    }).select("-password");
+    
+    if (user) {
+      res.json({ success: true, user });
+    } else {
+      res.json({ success: false, message: "User not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   registerUser,
   loginUser,
@@ -306,4 +345,5 @@ export {
   bookAppointment,
   listAppointment,
   cancelAppointment,
+  getUserByWhatsApp,
 };
