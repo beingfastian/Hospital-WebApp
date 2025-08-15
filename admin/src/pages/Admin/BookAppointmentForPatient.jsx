@@ -11,16 +11,17 @@ const BookAppointmentForPatient = () => {
   const { calculateAge, slotDateFormat, currency } = useContext(AppContext);
   
   // Patient selection state
-  const [patientSelectionMode, setPatientSelectionMode] = useState("existing"); // "existing" or "new"
+  const [patientSelectionMode, setPatientSelectionMode] = useState("existing");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [filteredPatients, setFilteredPatients] = useState([]);
 
-  // New patient form state (only used when adding new patient)
+  // New patient form state (updated without password, added CNIC)
   const [newPatientData, setNewPatientData] = useState({
     name: "",
     email: "",
     phone: "",
+    cnic: "", // Added CNIC field
     dob: "",
     gender: "Male",
     address: {
@@ -37,7 +38,8 @@ const BookAppointmentForPatient = () => {
   const [slotIndex, setSlotIndex] = useState(0);
   const [slotTime, setSlotTime] = useState("");
   const [isBooking, setIsBooking] = useState(false);
-  const [step, setStep] = useState(1); // 1: Patient Selection, 2: Doctor Selection, 3: Time Slot Selection
+  const [step, setStep] = useState(1);
+  const [discountPercent, setDiscountPercent] = useState(0); // Added discount
 
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -49,12 +51,12 @@ const BookAppointmentForPatient = () => {
   }, [aToken]);
 
   useEffect(() => {
-    // Filter patients based on search term
     if (patientSearchTerm) {
       const filtered = patients.filter(patient => 
         patient.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
         patient.email.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
-        patient.phone.toLowerCase().includes(patientSearchTerm.toLowerCase())
+        patient.phone.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+        (patient.cnic && patient.cnic.includes(patientSearchTerm))
       );
       setFilteredPatients(filtered);
     } else {
@@ -62,12 +64,18 @@ const BookAppointmentForPatient = () => {
     }
   }, [patients, patientSearchTerm]);
 
-  // Generate available slots for selected doctor
+  // Updated getAvailableSlots for 3 months (current + next 2 months)
   const getAvailableSlots = (doctor) => {
     if (!doctor) return;
     setDocSlots([]);
 
     let today = new Date();
+    
+    // Extend to next 3 months instead of just current month
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 3); // Extended to 3 months
+    endDate.setDate(0); // Last day of the third month
+
     if (today.getHours() >= 20) {
       const lastDayOfMonth = new Date(
         today.getFullYear(),
@@ -82,55 +90,114 @@ const BookAppointmentForPatient = () => {
       today.setHours(10, 0, 0, 0);
     }
 
-    for (let i = 0; i < 20; i++) {
+    // Calculate total days to show (approximately 90 days for 3 months)
+    const totalDays = Math.floor((endDate - today) / (1000 * 60 * 60 * 24)) + 1;
+    const daysToShow = Math.min(totalDays, 90); // Cap at 90 days
+
+    for (let i = 0; i < daysToShow; i++) {
       let currentDate = new Date(today);
       currentDate.setDate(today.getDate() + i);
-      let endTime = new Date(today);
-      endTime.setDate(today.getDate() + i);
-      endTime.setHours(21, 0, 0, 0);
+      
+      // Check if doctor is available on this day
+      const dayOfWeek = currentDate.getDay();
+      const dayName = daysOfWeek[dayOfWeek].toLowerCase();
+      
+      // Skip if doctor is not available on this day (based on sitting days)
+      if (doctor.sittingDays && !doctor.sittingDays.includes(dayName)) {
+        continue;
+      }
 
-      if (today.getDate() === currentDate.getDate()) {
-        currentDate.setHours(
-          currentDate.getHours() > 10 ? currentDate.getHours() + 1 : 10
-        );
-        currentDate.setMinutes(currentDate.getMinutes() > 30 ? 30 : 0);
+      // Check if doctor is on leave on this date
+      const dateStr = `${currentDate.getDate()}_${currentDate.getMonth() + 1}_${currentDate.getFullYear()}`;
+      if (doctor.leaveRequests && doctor.leaveRequests.some(leave => 
+        leave.status === 'approved' && isDateInRange(currentDate, leave.fromDate, leave.toDate)
+      )) {
+        continue;
+      }
+
+      let startTime = new Date(currentDate);
+      let endTime = new Date(currentDate);
+      
+      // Use doctor's timings if available, otherwise default times
+      if (doctor.timings) {
+        const [startHour, startMin] = doctor.timings.start.split(':');
+        const [endHour, endMin] = doctor.timings.end.split(':');
+        startTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+        endTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
       } else {
-        currentDate.setHours(10, 0, 0, 0);
+        startTime.setHours(10, 0, 0, 0);
+        endTime.setHours(21, 0, 0, 0);
+      }
+
+      if (today.getDate() === currentDate.getDate() && today.getMonth() === currentDate.getMonth()) {
+        const now = new Date();
+        if (now.getHours() >= startTime.getHours()) {
+          startTime.setHours(now.getHours() + 1, now.getMinutes() > 30 ? 30 : 0, 0, 0);
+        }
       }
 
       let timeSlots = [];
-      while (currentDate < endTime) {
-        let formattedTime = currentDate.toLocaleTimeString([], {
+      let tempTime = new Date(startTime);
+      
+      while (tempTime < endTime) {
+        let formattedTime = tempTime.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
         });
-        let day = currentDate.getDate();
-        let month = currentDate.getMonth() + 1;
-        let year = currentDate.getFullYear();
-
-        const slotDate = day + "_" + month + "_" + year;
-        const slotTime = formattedTime;
-        const isSlotAvailable =
-          doctor.slots_booked[slotDate] &&
-          doctor.slots_booked[slotDate].includes(slotTime)
-            ? false
-            : true;
+        
+        const slotDate = `${currentDate.getDate()}_${currentDate.getMonth() + 1}_${currentDate.getFullYear()}`;
+        const isSlotAvailable = 
+          doctor.slots_booked[slotDate] && 
+          doctor.slots_booked[slotDate].includes(formattedTime) ? false : true;
 
         if (isSlotAvailable) {
           timeSlots.push({
-            datetime: new Date(currentDate),
+            datetime: new Date(tempTime),
             time: formattedTime,
           });
         }
 
-        currentDate.setMinutes(currentDate.getMinutes() + 30);
+        tempTime.setMinutes(tempTime.getMinutes() + 30);
       }
-      setDocSlots((prev) => [...prev, timeSlots]);
+
+      if (timeSlots.length > 0) {
+        setDocSlots((prev) => [...prev, timeSlots]);
+      }
     }
   };
 
+  // Helper function to check if a date is in leave range
+  const isDateInRange = (date, fromDate, toDate) => {
+    const checkDate = new Date(date);
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    return checkDate >= start && checkDate <= end;
+  };
+
+  // CNIC validation function
+  const validateCNIC = (cnic) => {
+    // Remove any dashes and spaces
+    const cleanCNIC = cnic.replace(/[-\s]/g, '');
+    
+    // Check if it's exactly 13 digits
+    if (!/^\d{13}$/.test(cleanCNIC)) {
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleNewPatientDataChange = (field, value) => {
+    if (field === 'cnic') {
+      // Clean CNIC input - remove dashes and limit to numbers only
+      const cleanValue = value.replace(/[-\s]/g, '').replace(/\D/g, '');
+      if (cleanValue.length <= 13) {
+        setNewPatientData(prev => ({ ...prev, [field]: cleanValue }));
+      }
+      return;
+    }
+    
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setNewPatientData(prev => ({
@@ -155,9 +222,14 @@ const BookAppointmentForPatient = () => {
         return false;
       }
     } else {
-      const { name, email, phone, dob, address } = newPatientData;
-      if (!name || !email || !phone || !dob || !address.line1) {
+      const { name, email, phone, cnic, dob, address } = newPatientData;
+      if (!name || !email || !phone || !cnic || !dob || !address.line1) {
         toast.error("Please fill all required patient fields");
+        return false;
+      }
+      
+      if (!validateCNIC(cnic)) {
+        toast.error("CNIC must be exactly 13 digits without dashes");
         return false;
       }
       
@@ -183,6 +255,13 @@ const BookAppointmentForPatient = () => {
     setSlotTime("");
   };
 
+  // Calculate discounted fee
+  const calculateDiscountedFee = () => {
+    if (!selectedDoctor || !discountPercent) return selectedDoctor?.fee || 0;
+    const discount = (selectedDoctor.fee * discountPercent) / 100;
+    return selectedDoctor.fee - discount;
+  };
+
   const bookAppointment = async () => {
     try {
       if (!selectedDoctor || !slotTime) {
@@ -198,6 +277,7 @@ const BookAppointmentForPatient = () => {
       let year = date.getFullYear();
 
       const slotDate = day + "_" + month + "_" + year;
+      const finalFee = calculateDiscountedFee();
 
       const bookingData = {
         patientSelectionMode,
@@ -206,6 +286,8 @@ const BookAppointmentForPatient = () => {
         docId: selectedDoctor._id,
         slotDate,
         slotTime,
+        discountPercent: discountPercent || 0,
+        finalFee: finalFee
       };
 
       const { data } = await axios.post(
@@ -217,7 +299,6 @@ const BookAppointmentForPatient = () => {
       if (data.success) {
         toast.success(data.message);
         
-        // Show notification type confirmation
         const patientData = selectedPatient || newPatientData;
         if (patientData.whatsappEnabled) {
           toast.info("WhatsApp confirmation will be sent to patient!", {
@@ -235,6 +316,7 @@ const BookAppointmentForPatient = () => {
           name: "",
           email: "",
           phone: "",
+          cnic: "",
           dob: "",
           gender: "Male",
           address: { line1: "", line2: "" },
@@ -244,9 +326,10 @@ const BookAppointmentForPatient = () => {
         setSelectedDoctor(null);
         setStep(1);
         setSlotTime("");
+        setDiscountPercent(0);
         setPatientSelectionMode("existing");
-        getAllDoctors(); // Refresh doctor slots
-        getAllPatients(); // Refresh patients if new one was added
+        getAllDoctors();
+        getAllPatients();
       } else {
         toast.error(data.message);
       }
@@ -264,6 +347,7 @@ const BookAppointmentForPatient = () => {
       name: "",
       email: "",
       phone: "",
+      cnic: "",
       dob: "",
       gender: "Male",
       address: { line1: "", line2: "" },
@@ -273,6 +357,7 @@ const BookAppointmentForPatient = () => {
     setSelectedDoctor(null);
     setStep(1);
     setSlotTime("");
+    setDiscountPercent(0);
     setPatientSelectionMode("existing");
   };
 
@@ -323,7 +408,6 @@ const BookAppointmentForPatient = () => {
         <div className="bg-white p-6 rounded-lg border">
           <h2 className="text-xl font-medium mb-4">Select Patient</h2>
           
-          {/* Patient Selection Mode Toggle */}
           <div className="flex items-center gap-4 mb-6">
             <button
               onClick={() => setPatientSelectionMode("existing")}
@@ -354,7 +438,7 @@ const BookAppointmentForPatient = () => {
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search patients by name, email, or phone..."
+                  placeholder="Search patients by name, email, phone, or CNIC..."
                   value={patientSearchTerm}
                   onChange={(e) => setPatientSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md outline-primary"
@@ -382,6 +466,9 @@ const BookAppointmentForPatient = () => {
                         <h3 className="font-medium text-gray-900">{patient.name}</h3>
                         <p className="text-sm text-gray-600">{patient.email}</p>
                         <p className="text-sm text-gray-600">{patient.phone}</p>
+                        {patient.cnic && (
+                          <p className="text-sm text-gray-500">CNIC: {patient.cnic}</p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-gray-500">
                             {calculateAge(patient.dob)} years, {patient.gender}
@@ -445,6 +532,23 @@ const BookAppointmentForPatient = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CNIC (13 digits) *
+                </label>
+                <input
+                  type="text"
+                  value={newPatientData.cnic}
+                  onChange={(e) => handleNewPatientDataChange('cnic', e.target.value)}
+                  placeholder="e.g., 1234567890123"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  maxLength="13"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter 13 digits without dashes ({newPatientData.cnic.length}/13)
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Date of Birth *
                 </label>
                 <input
@@ -481,7 +585,7 @@ const BookAppointmentForPatient = () => {
                   required
                 />
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Address Line 2
                 </label>
@@ -562,6 +666,9 @@ const BookAppointmentForPatient = () => {
               <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
                 <span>Email: {getSelectedPatientData().email}</span>
                 <span>Phone: {getSelectedPatientData().phone}</span>
+                {getSelectedPatientData().cnic && (
+                  <span>CNIC: {getSelectedPatientData().cnic}</span>
+                )}
                 <span>Age: {calculateAge(getSelectedPatientData().dob)} years</span>
                 <span className="flex items-center gap-1">
                   {getSelectedPatientData().whatsappEnabled ? (
@@ -600,8 +707,18 @@ const BookAppointmentForPatient = () => {
                   <h3 className="font-medium text-gray-900">{doctor.name}</h3>
                   <p className="text-sm text-gray-600">{doctor.speciality}</p>
                   <p className="text-sm text-primary font-medium mt-1">
-                    {currency}{doctor.fee}
+                    Rs. {doctor.fee}
                   </p>
+                  {doctor.timings && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {doctor.timings.start} - {doctor.timings.end}
+                    </p>
+                  )}
+                  {doctor.sittingDays && (
+                    <p className="text-xs text-gray-500">
+                      Days: {doctor.sittingDays.join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -632,7 +749,12 @@ const BookAppointmentForPatient = () => {
             <div>
               <h3 className="font-medium text-gray-900">{selectedDoctor.name}</h3>
               <p className="text-sm text-gray-600">{selectedDoctor.speciality}</p>
-              <p className="text-sm text-primary font-medium">Fee: {currency}{selectedDoctor.fee}</p>
+              <p className="text-sm text-primary font-medium">Fee: Rs. {selectedDoctor.fee}</p>
+              {selectedDoctor.whatsappNumber && (
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  <FaWhatsapp /> {selectedDoctor.whatsappNumber}
+                </p>
+              )}
             </div>
           </div>
 
@@ -659,6 +781,42 @@ const BookAppointmentForPatient = () => {
             </div>
           </div>
 
+          {/* Discount Section */}
+          <div className="p-4 bg-yellow-50 rounded-lg mb-6 border border-yellow-200">
+            <h4 className="font-medium text-gray-900 mb-3">Apply Discount (Optional)</h4>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Discount Percentage
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  placeholder="Enter discount %"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Final Fee
+                </label>
+                <div className="px-3 py-2 bg-white border border-gray-300 rounded-md">
+                  <span className="text-lg font-medium text-green-600">
+                    Rs. {calculateDiscountedFee()}
+                  </span>
+                  {discountPercent > 0 && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      (Rs. {(selectedDoctor.fee * discountPercent / 100).toFixed(0)} off)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Date Selection */}
           <div className="mb-4">
             <p className="font-medium text-gray-700 mb-3">Select Date</p>
@@ -681,6 +839,7 @@ const BookAppointmentForPatient = () => {
                       <>
                         <p className="text-sm font-medium">{daysOfWeek[item[0].datetime.getDay()]}</p>
                         <p className="text-lg">{item[0].datetime.getDate()}</p>
+                        <p className="text-xs">{item[0].datetime.toLocaleDateString('en-US', { month: 'short' })}</p>
                       </>
                     )}
                   </div>
@@ -720,7 +879,11 @@ const BookAppointmentForPatient = () => {
                   <p><strong>Date & Time:</strong> {docSlots[slotIndex][0] && slotDateFormat(
                     `${docSlots[slotIndex][0].datetime.getDate()}_${docSlots[slotIndex][0].datetime.getMonth() + 1}_${docSlots[slotIndex][0].datetime.getFullYear()}`
                   )} at {slotTime}</p>
-                  <p><strong>Fee:</strong> {currency}{selectedDoctor.fee}</p>
+                  <p><strong>Original Fee:</strong> Rs. {selectedDoctor.fee}</p>
+                  {discountPercent > 0 && (
+                    <p><strong>Discount:</strong> {discountPercent}% (Rs. {(selectedDoctor.fee * discountPercent / 100).toFixed(0)})</p>
+                  )}
+                  <p><strong>Final Fee:</strong> Rs. {calculateDiscountedFee()}</p>
                   <p className="flex items-center gap-1">
                     <strong>Notification:</strong>
                     {getSelectedPatientData().whatsappEnabled ? (

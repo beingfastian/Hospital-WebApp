@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { FaWhatsapp, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaWhatsapp } from "react-icons/fa";
 import { ClipLoader } from "react-spinners";
 import { assets } from "../../assets/assets.js";
 
@@ -10,8 +10,7 @@ const AddPatient = () => {
   const [patientImage, setPatientImage] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [cnic, setCnic] = useState(""); // Changed from password to CNIC
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("Male");
@@ -22,6 +21,27 @@ const AddPatient = () => {
   const { backendUrl, aToken } = useContext(AdminContext);
   const [loading, setLoading] = useState(false);
 
+  // CNIC validation function
+  const validateCNIC = (cnicValue) => {
+    // Remove any dashes and spaces
+    const cleanCNIC = cnicValue.replace(/[-\s]/g, '');
+    
+    // Check if it's exactly 13 digits
+    if (!/^\d{13}$/.test(cleanCNIC)) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Handle CNIC input change
+  const handleCnicChange = (e) => {
+    const value = e.target.value;
+    // Remove any non-digit characters and limit to 13 digits
+    const cleanValue = value.replace(/\D/g, '').slice(0, 13);
+    setCnic(cleanValue);
+  };
+
   const onSubmitHandler = async (e) => {
     e.preventDefault();
     try {
@@ -30,12 +50,24 @@ const AddPatient = () => {
       }
       
       // Validation
-      if (!name || !email || !password || !phone || !dob || !address1) {
+      if (!name || !email || !cnic || !phone || !dob || !address1) {
         return toast.error("Please fill all required fields");
+      }
+
+      // Validate CNIC
+      if (!validateCNIC(cnic)) {
+        return toast.error("CNIC must be exactly 13 digits without dashes");
+        return;
       }
 
       if (whatsappEnabled && !whatsappNumber) {
         return toast.error("Please enter WhatsApp number when WhatsApp is enabled");
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return toast.error("Please enter a valid email address");
       }
 
       setLoading(true);
@@ -43,7 +75,7 @@ const AddPatient = () => {
       formData.append("image", patientImage);
       formData.append("name", name);
       formData.append("email", email);
-      formData.append("password", password);
+      formData.append("cnic", cnic); // Send CNIC instead of password
       formData.append("phone", phone);
       formData.append("dob", dob);
       formData.append("gender", gender);
@@ -66,7 +98,7 @@ const AddPatient = () => {
         // Reset form
         setName("");
         setEmail("");
-        setPassword("");
+        setCnic("");
         setPhone("");
         setDob("");
         setGender("Male");
@@ -137,23 +169,29 @@ const AddPatient = () => {
               />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <p>Password *</p>
-              <div className="relative">
-                <input
-                  className="border rounded px-3 py-2 w-full outline-primary"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  required
-                />
-                <span
-                  className="absolute top-1/2 right-3 transform -translate-y-1/2 cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
+              <p>CNIC (13 digits) *</p>
+              <input
+                className="border rounded px-3 py-2 outline-primary"
+                type="text"
+                value={cnic}
+                onChange={handleCnicChange}
+                placeholder="Enter 13-digit CNIC without dashes"
+                maxLength="13"
+                required
+              />
+              <p className="text-xs text-gray-500">
+                Enter exactly 13 digits without dashes (Current: {cnic.length}/13)
+              </p>
+              {cnic.length > 0 && cnic.length !== 13 && (
+                <p className="text-xs text-red-500">
+                  CNIC must be exactly 13 digits
+                </p>
+              )}
+              {cnic.length === 13 && validateCNIC(cnic) && (
+                <p className="text-xs text-green-500">
+                  ✓ Valid CNIC format
+                </p>
+              )}
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <p>Phone Number *</p>

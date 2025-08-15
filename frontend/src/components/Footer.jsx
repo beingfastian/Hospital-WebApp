@@ -5,7 +5,7 @@ import { FaFacebook, FaInstagram, FaWhatsapp, FaPhone, FaEnvelope } from "react-
 const Footer = () => {
   // Contact details
   const whatsappNumber = "+923348400517";
-  const phoneNumber = "+923348400517";
+  const phoneNumber = "+923318400517";
   const email = "Siddiquehospital@gmail.com";
   
   const handleWhatsAppClick = () => {
