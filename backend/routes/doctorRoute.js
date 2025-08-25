@@ -8,6 +8,9 @@ import {
   doctorDashboard,
   doctorProfile,
   updateDoctorProfile,
+  requestLeave,
+  listLeaveRequests,
+  cancelLeaveRequest,
 } from "../controllers/doctorController.js";
 import authDoctor from "../middleware/authDoctor.js";
 
@@ -21,5 +24,10 @@ doctorRouter.post("/cancel-appointment", authDoctor, appointmentCancel);
 doctorRouter.get("/dashboard", authDoctor, doctorDashboard);
 doctorRouter.get("/profile", authDoctor, doctorProfile);
 doctorRouter.post("/update-profile", authDoctor, updateDoctorProfile);
+
+// Leave request routes
+doctorRouter.post("/request-leave", authDoctor, requestLeave);
+doctorRouter.get("/leave-requests", authDoctor, listLeaveRequests);
+doctorRouter.delete("/cancel-leave-request/:id", authDoctor, cancelLeaveRequest);
 
 export default doctorRouter;

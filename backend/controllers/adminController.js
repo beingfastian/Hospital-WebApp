@@ -10,7 +10,7 @@ import {
   sendDoctorAppointmentNotification, 
   sendAdminAppointmentNotification 
 } from "../config/emailService.js";
-import { sendWhatsAppConfirmation } from "../config/whatsappService.js";
+import { sendWhatsAppConfirmation, sendDoctorWhatsAppConfirmation } from "../config/whatsappService.js";
 
 // API for adding doctors
 const addDoctor = async (req, res) => {
@@ -25,6 +25,11 @@ const addDoctor = async (req, res) => {
       fee,
       degree,
       address,
+      whatsappEnabled,
+      whatsappNumber,
+      timings,
+      sittingDays,
+      holidays
     } = req.body;
 
     const imageFile = req.file;
@@ -85,6 +90,12 @@ const addDoctor = async (req, res) => {
       fee,
       address: JSON.parse(address),
       date: Date.now(),
+      // --- New fields ---
+      whatsappEnabled: whatsappEnabled === 'true' || whatsappEnabled === true,
+      whatsappNumber: whatsappNumber || "",
+      timings: timings ? JSON.parse(timings) : { start: "09:00", end: "17:00" },
+      sittingDays: sittingDays ? JSON.parse(sittingDays) : [],
+      holidays: holidays || ""
     };
 
     const newDoctor = new doctorModel(doctorData);
@@ -197,8 +208,7 @@ const addPatient = async (req, res) => {
   try {
     const {
       name,
-      email,
-      password,
+      cnic,
       phone,
       dob,
       gender,
@@ -209,33 +219,21 @@ const addPatient = async (req, res) => {
 
     const imageFile = req.file;
 
-    // Validate required fields
-    if (!name || !email || !password || !phone || !dob || !address) {
+    // Validate required fields (remove email/password)
+    if (!name || !cnic || !phone || !dob || !address) {
       return res.json({ success: false, message: "Please fill all required fields" });
     }
 
-    // Validate email
-    if (!validator.isEmail(email)) {
-      return res.json({ success: false, message: "Please enter a valid email" });
+    // Validate CNIC (must be 13 digits)
+    if (!/^\d{13}$/.test(cnic)) {
+      return res.json({ success: false, message: "CNIC must be exactly 13 digits" });
     }
 
-    // Validate password
-    if (password.length < 8) {
-      return res.json({ 
-        success: false, 
-        message: "Password should be at least 8 characters long" 
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await userModel.findOne({ email });
+    // Check if user already exists by CNIC or phone
+    const existingUser = await userModel.findOne({ $or: [{ cnic }, { phone }] });
     if (existingUser) {
-      return res.json({ success: false, message: "Patient with this email already exists" });
+      return res.json({ success: false, message: "Patient with this CNIC or phone already exists" });
     }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
 
     // Upload image if provided
     let imageUrl = null;
@@ -248,8 +246,7 @@ const addPatient = async (req, res) => {
 
     const patientData = {
       name,
-      email,
-      password: hashedPassword,
+      cnic,
       phone,
       dob,
       gender: gender || "Male",
@@ -371,7 +368,9 @@ const bookAppointmentForPatient = async (req, res) => {
       newPatientData,
       docId,
       slotDate,
-      slotTime
+      slotTime,
+      discountPercent,
+      finalFee
     } = req.body;
 
     let patientId = selectedPatientId;
@@ -379,32 +378,26 @@ const bookAppointmentForPatient = async (req, res) => {
 
     // If booking for new patient, create the patient first
     if (patientSelectionMode === "new") {
-      // Validate new patient data
-      const { name, email, phone, dob, gender, address, whatsappEnabled, whatsappNumber } = newPatientData;
-      
-      if (!name || !email || !phone || !dob || !address.line1) {
+      // Accept CNIC-based patient creation (no email required)
+      const { name, phone, cnic, dob, gender, address, whatsappEnabled, whatsappNumber } = newPatientData;
+
+      if (!name || !phone || !cnic || !dob || !address.line1) {
         return res.json({ success: false, message: "Please fill all required patient fields" });
       }
 
-      if (!validator.isEmail(email)) {
-        return res.json({ success: false, message: "Please enter a valid email" });
+      if (!/^\d{13}$/.test(cnic)) {
+        return res.json({ success: false, message: "CNIC must be exactly 13 digits" });
       }
 
-      // Check if user already exists
-      const existingUser = await userModel.findOne({ email });
+      // Check if user already exists by CNIC or phone
+      const existingUser = await userModel.findOne({ $or: [{ cnic }, { phone }] });
       if (existingUser) {
-        return res.json({ success: false, message: "Patient with this email already exists" });
+        return res.json({ success: false, message: "Patient with this CNIC or phone already exists" });
       }
-
-      // Create new patient with default password
-      const defaultPassword = "Patient123"; // Admin should inform patient to change this
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(defaultPassword, salt);
 
       const patientData = {
         name,
-        email,
-        password: hashedPassword,
+        cnic,
         phone,
         dob,
         gender,
@@ -450,7 +443,7 @@ const bookAppointmentForPatient = async (req, res) => {
       slots_booked[slotDate] = [slotTime];
     }
 
-    // Create appointment
+    // Create appointment (support discount/finalFee if provided)
     const appointmentData = {
       userId: patientId,
       docId,
@@ -460,6 +453,8 @@ const bookAppointmentForPatient = async (req, res) => {
       docData: docData.toObject(),
       amount: docData.fee,
       date: new Date().getTime(),
+      ...(typeof discountPercent !== "undefined" && { discountPercent }),
+      ...(typeof finalFee !== "undefined" && { finalFee })
     };
 
     const newAppointment = new appointmentModel(appointmentData);
@@ -472,7 +467,8 @@ const bookAppointmentForPatient = async (req, res) => {
     try {
       // Send WhatsApp notification if user has WhatsApp enabled
       if (userData.whatsappEnabled && userData.whatsappNumber) {
-        await sendWhatsAppConfirmation(
+        console.log('Attempting WhatsApp notification to patient:', userData.whatsappNumber);
+        const patientWhatsAppResult = await sendWhatsAppConfirmation(
           userData.whatsappNumber,
           userData.name,
           docData.name,
@@ -482,18 +478,45 @@ const bookAppointmentForPatient = async (req, res) => {
           docData.fee,
           newAppointment._id.toString()
         );
+        if (patientWhatsAppResult.success) {
+          console.log('WhatsApp notification sent to patient:', patientWhatsAppResult.messageId);
+        } else {
+          console.error('WhatsApp notification to patient failed:', patientWhatsAppResult.error || patientWhatsAppResult.message);
+        }
       }
 
-      // Send email notifications
-      await sendUserAppointmentConfirmation(
-        userData.email,
-        userData.name,
-        docData.name,
-        docData.speciality,
-        slotDate,
-        slotTime,
-        docData.fee
-      );
+      // Send WhatsApp notification to doctor if enabled
+      if (docData.whatsappEnabled && docData.whatsappNumber) {
+        console.log('Attempting WhatsApp notification to doctor:', docData.whatsappNumber);
+        const doctorWhatsAppResult = await sendDoctorWhatsAppConfirmation(
+          docData.whatsappNumber,
+          docData.name,
+          userData.name,
+          userData.phone,
+          slotDate,
+          slotTime,
+          docData.fee,
+          newAppointment._id.toString()
+        );
+        if (doctorWhatsAppResult.success) {
+          console.log('WhatsApp notification sent to doctor:', doctorWhatsAppResult.messageId);
+        } else {
+          console.error('WhatsApp notification to doctor failed:', doctorWhatsAppResult.error || doctorWhatsAppResult.message);
+        }
+      }
+
+      // Send email notifications only if patient has email
+      if (userData.email) {
+        await sendUserAppointmentConfirmation(
+          userData.email,
+          userData.name,
+          docData.name,
+          docData.speciality,
+          slotDate,
+          slotTime,
+          docData.fee
+        );
+      }
     } catch (notificationError) {
       console.error('Notification error:', notificationError);
       // Don't fail the appointment if notifications fail

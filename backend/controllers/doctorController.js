@@ -2,6 +2,7 @@
 // import bcrypt from "bcrypt";
 // import jwt from "jsonwebtoken";
 // import appointmentModel from "../model/appointmentModel.js";
+// import leaveRequestModel from "../model/leaveRequestModel.js";
 
 // const changeAvailabilities = async (req, res) => {
 //   try {
@@ -168,6 +169,78 @@
 //     res.json({ success: false, message: error.message });
 //   }
 // };
+
+// // Doctor applies for leave
+// const requestLeave = async (req, res) => {
+//   try {
+//     const { dToken } = req.headers;
+//     const { fromDate, toDate, reason, type } = req.body;
+//     const doctorId = req.doctorId || req.body.docId; // Adjust according to your auth
+
+//     if (!fromDate || !toDate || !reason) {
+//       return res.json({ success: false, message: "All fields are required" });
+//     }
+
+//     // Check for overlapping leave
+//     const overlap = await leaveRequestModel.findOne({
+//       doctorId,
+//       status: { $ne: "rejected" },
+//       $or: [
+//         { fromDate: { $lte: new Date(toDate) }, toDate: { $gte: new Date(fromDate) } },
+//       ],
+//     });
+//     if (overlap) {
+//       return res.json({
+//         success: false,
+//         message: "Leave request overlaps with existing request",
+//       });
+//     }
+
+//     await leaveRequestModel.create({
+//       doctorId,
+//       fromDate,
+//       toDate,
+//       reason,
+//       type,
+//     });
+
+//     res.json({ success: true, message: "Leave request submitted" });
+//   } catch (error) {
+//     console.error(error);
+//     res.json({ success: false, message: error.message });
+//   }
+// };
+
+// // List doctor's leave requests
+// const listLeaveRequests = async (req, res) => {
+//   try {
+//     const doctorId = req.doctorId || req.headers.docid || req.body.docId;
+//     const leaveRequests = await leaveRequestModel
+//       .find({ doctorId })
+//       .sort({ submittedAt: -1 });
+//     res.json({ success: true, leaveRequests });
+//   } catch (error) {
+//     console.error(error);
+//     res.json({ success: false, message: error.message });
+//   }
+// };
+
+// // Cancel a pending leave request
+// const cancelLeaveRequest = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const leave = await leaveRequestModel.findById(id);
+//     if (!leave || leave.status !== "pending") {
+//       return res.json({ success: false, message: "Cannot cancel this leave request" });
+//     }
+//     await leaveRequestModel.findByIdAndDelete(id);
+//     res.json({ success: true, message: "Leave request cancelled" });
+//   } catch (error) {
+//     console.error(error);
+//     res.json({ success: false, message: error.message });
+//   }
+// };
+
 // export {
 //   changeAvailabilities,
 //   doctorList,
@@ -178,6 +251,9 @@
 //   doctorDashboard,
 //   doctorProfile,
 //   updateDoctorProfile,
+//   requestLeave,
+//   listLeaveRequests,
+//   cancelLeaveRequest,
 // };
 
 
@@ -186,6 +262,7 @@ import doctorModel from "../model/doctorModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import appointmentModel from "../model/appointmentModel.js";
+import leaveRequestModel from "../model/leaveRequestModel.js";
 
 const changeAvailabilities = async (req, res) => {
   try {
@@ -354,6 +431,79 @@ const updateDoctorProfile = async (req, res) => {
   }
 };
 
+// Doctor applies for leave
+const requestLeave = async (req, res) => {
+  try {
+    const doctorId = req.doctorId; // Only use req.doctorId from authDoctor
+    const { fromDate, toDate, reason, type } = req.body;
+
+    if (!doctorId) {
+      return res.json({ success: false, message: "Doctor not authenticated" });
+    }
+    if (!fromDate || !toDate || !reason) {
+      return res.json({ success: false, message: "All fields are required" });
+    }
+
+    // Check for overlapping leave
+    const overlap = await leaveRequestModel.findOne({
+      doctorId,
+      status: { $ne: "rejected" },
+      $or: [
+        { fromDate: { $lte: new Date(toDate) }, toDate: { $gte: new Date(fromDate) } },
+      ],
+    });
+    if (overlap) {
+      return res.json({
+        success: false,
+        message: "Leave request overlaps with existing request",
+      });
+    }
+
+    await leaveRequestModel.create({
+      doctorId,
+      fromDate,
+      toDate,
+      reason,
+      type,
+    });
+
+    res.json({ success: true, message: "Leave request submitted" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// List doctor's leave requests
+const listLeaveRequests = async (req, res) => {
+  try {
+    const doctorId = req.doctorId || req.headers.docid || req.body.docId;
+    const leaveRequests = await leaveRequestModel
+      .find({ doctorId })
+      .sort({ submittedAt: -1 });
+    res.json({ success: true, leaveRequests });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Cancel a pending leave request
+const cancelLeaveRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const leave = await leaveRequestModel.findById(id);
+    if (!leave || leave.status !== "pending") {
+      return res.json({ success: false, message: "Cannot cancel this leave request" });
+    }
+    await leaveRequestModel.findByIdAndDelete(id);
+    res.json({ success: true, message: "Leave request cancelled" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   changeAvailabilities,
   doctorList,
@@ -364,4 +514,7 @@ export {
   doctorDashboard,
   doctorProfile,
   updateDoctorProfile,
+  requestLeave,
+  listLeaveRequests,
+  cancelLeaveRequest,
 };

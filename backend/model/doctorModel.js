@@ -15,6 +15,15 @@ const doctorSchema = new mongoose.Schema(
     address: { type: Object, required: true },
     date: { type: Number, required: true },
     slots_booked: { type: Object, default: {} },
+    // --- New fields for admin/doctor ---
+    whatsappEnabled: { type: Boolean, default: false },
+    whatsappNumber: { type: String, default: "" },
+    timings: {
+      start: { type: String, default: "09:00" },
+      end: { type: String, default: "17:00" },
+    },
+    sittingDays: { type: [String], default: [] }, // e.g. ["monday", "tuesday"]
+    holidays: { type: String, default: "" },
   },
   { minimize: false }
 );

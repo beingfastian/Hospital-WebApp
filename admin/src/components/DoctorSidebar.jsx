@@ -5,6 +5,7 @@ import axios from "axios";
 import { FaWhatsapp } from "react-icons/fa";
 import { ClipLoader } from "react-spinners";
 import { assets } from "../../assets/assets.js";
+import { Link } from "react-router-dom";
 
 const AddPatient = () => {
   const [patientImage, setPatientImage] = useState(false);
@@ -275,6 +276,11 @@ const AddPatient = () => {
         >
           {loading ? <ClipLoader size={24} color="#ffffff" /> : "Add Patient"}
         </button>
+      </div>
+      <div className="mt-4">
+        <Link to="/doctor/leave-requests" className="text-primary underline">
+          View Leave Requests
+        </Link>
       </div>
     </form>
   );

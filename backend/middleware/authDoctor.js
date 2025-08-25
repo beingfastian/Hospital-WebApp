@@ -1,21 +1,20 @@
 import jwt from "jsonwebtoken";
+import doctorModel from "../model/doctorModel.js";
 
 // Doctor Authentication Middleware
 const authDoctor = async (req, res, next) => {
   try {
-    const { dtoken } = req.headers;
-    if (!dtoken) {
-      return res.json({
-        success: false,
-        message: "Unauthorized Access denied",
-      });
+    const token = req.headers.dtoken;
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "No token provided" });
     }
-    const token_decode = jwt.verify(dtoken, process.env.JWT_SECRET);
-    req.body.docId = token_decode.id;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.doctorId = decoded.id;
     next();
   } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: error.message });
+    res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
 

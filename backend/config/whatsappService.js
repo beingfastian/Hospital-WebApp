@@ -206,6 +206,104 @@ export const sendBulkWhatsAppMessage = async (phoneNumbers, message) => {
   return results;
 };
 
+// Send appointment confirmation to doctor via WhatsApp
+export const sendDoctorWhatsAppConfirmation = async (
+  phoneNumber,
+  doctorName,
+  patientName,
+  patientPhone,
+  appointmentDate,
+  appointmentTime,
+  fee,
+  appointmentId
+) => {
+  try {
+    if (!isWhatsAppConfigured()) {
+      return { success: false, message: 'WhatsApp not configured' };
+    }
+    if (!twilioClient) {
+      throw new Error('Twilio client not initialized');
+    }
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber;
+    }
+    const message = `
+*📅 New Appointment Booked - Siddique Hospital*
+
+Dear Dr. ${doctorName},
+
+A new appointment has been booked.
+
+*Patient:* ${patientName}
+*Phone:* ${patientPhone}
+*Date:* ${formatDate(appointmentDate)}
+*Time:* ${appointmentTime}
+*Fee:* Rs. ${fee}
+*Appointment ID:* ${appointmentId}
+
+Please check your dashboard for more details.
+
+Thank you!
+    `;
+    const result = await twilioClient.messages.create({
+      body: message.trim(),
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:${formattedNumber}`
+    });
+    return { success: true, messageId: result.sid };
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp to doctor:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send appointment reminder to doctor via WhatsApp
+export const sendDoctorWhatsAppReminder = async (
+  phoneNumber,
+  doctorName,
+  patientName,
+  appointmentDate,
+  appointmentTime
+) => {
+  try {
+    if (!isWhatsAppConfigured()) {
+      return { success: false, message: 'WhatsApp not configured' };
+    }
+    if (!twilioClient) {
+      throw new Error('Twilio client not initialized');
+    }
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber;
+    }
+    const message = `
+*⏰ Appointment Reminder - Siddique Hospital*
+
+Dear Dr. ${doctorName},
+
+You have an upcoming appointment:
+
+*Patient:* ${patientName}
+*Date:* ${formatDate(appointmentDate)}
+*Time:* ${appointmentTime}
+
+Please be prepared and check your dashboard for details.
+
+Thank you!
+    `;
+    const result = await twilioClient.messages.create({
+      body: message.trim(),
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:${formattedNumber}`
+    });
+    return { success: true, messageId: result.sid };
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp reminder to doctor:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Test WhatsApp connection on startup
 export const testWhatsAppConnection = async () => {
   if (!isWhatsAppConfigured()) {
@@ -241,6 +339,8 @@ export default {
   sendWhatsAppReminder,
   sendCustomWhatsAppMessage,
   sendBulkWhatsAppMessage,
+  sendDoctorWhatsAppConfirmation,
+  sendDoctorWhatsAppReminder,
   testWhatsAppConnection,
   getWhatsAppStatus,
   isWhatsAppConfigured

@@ -40,8 +40,11 @@ const BookAppointmentForPatient = () => {
   const [isBooking, setIsBooking] = useState(false);
   const [step, setStep] = useState(1);
   const [discountPercent, setDiscountPercent] = useState(0); // Added discount
+  const [slotsLoading, setSlotsLoading] = useState(false); // New state for loading slots
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysOfWeek = [
+    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
+  ];
 
   useEffect(() => {
     if (aToken) {
@@ -66,7 +69,7 @@ const BookAppointmentForPatient = () => {
 
   // Updated getAvailableSlots for 3 months (current + next 2 months)
   const getAvailableSlots = (doctor) => {
-    if (!doctor) return;
+    setSlotsLoading(true);
     setDocSlots([]);
 
     let today = new Date();
@@ -100,7 +103,7 @@ const BookAppointmentForPatient = () => {
       
       // Check if doctor is available on this day
       const dayOfWeek = currentDate.getDay();
-      const dayName = daysOfWeek[dayOfWeek].toLowerCase();
+      const dayName = daysOfWeek[dayOfWeek]; // now matches "monday", etc.
       
       // Skip if doctor is not available on this day (based on sitting days)
       if (doctor.sittingDays && !doctor.sittingDays.includes(dayName)) {
@@ -165,6 +168,7 @@ const BookAppointmentForPatient = () => {
         setDocSlots((prev) => [...prev, timeSlots]);
       }
     }
+    setSlotsLoading(false);
   };
 
   // Helper function to check if a date is in leave range
@@ -368,7 +372,7 @@ const BookAppointmentForPatient = () => {
   return (
     <div className="m-5 max-w-6xl">
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-medium">Book Appointment for Patient</h1>
+        <h1 className="text-2xl font-bold text-primary">Book Appointment for Patient</h1>
         {step > 1 && (
           <button
             onClick={resetForm}
@@ -405,8 +409,8 @@ const BookAppointmentForPatient = () => {
 
       {/* Step 1: Patient Selection */}
       {step === 1 && (
-        <div className="bg-white p-6 rounded-lg border">
-          <h2 className="text-xl font-medium mb-4">Select Patient</h2>
+        <div className="bg-white p-8 rounded-lg border shadow">
+          <h2 className="text-2xl font-semibold mb-4 text-primary">1. Select Patient</h2>
           
           <div className="flex items-center gap-4 mb-6">
             <button
@@ -654,14 +658,14 @@ const BookAppointmentForPatient = () => {
 
       {/* Step 2: Doctor Selection */}
       {step === 2 && (
-        <div className="bg-white p-6 rounded-lg border">
-          <h2 className="text-xl font-medium mb-4">Select Doctor</h2>
+        <div className="bg-white p-8 rounded-lg border shadow">
+          <h2 className="text-2xl font-semibold mb-4 text-primary">2. Select Doctor</h2>
           
           {/* Selected Patient Summary */}
           {getSelectedPatientData() && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">
-                Selected Patient: {getSelectedPatientData().name}
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                <span className="text-primary">Patient:</span> {getSelectedPatientData().name}
               </h4>
               <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
                 <span>Email: {getSelectedPatientData().email}</span>
@@ -723,26 +727,35 @@ const BookAppointmentForPatient = () => {
               </div>
             ))}
           </div>
+
+          <div className="mt-6 flex gap-4">
+            <button
+              onClick={() => setStep(1)}
+              className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
+            >
+              Back
+            </button>
+          </div>
         </div>
       )}
 
       {/* Step 3: Time Slot Selection */}
       {step === 3 && selectedDoctor && (
-        <div className="bg-white p-6 rounded-lg border">
+        <div className="bg-white p-8 rounded-lg border shadow">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-medium">Select Appointment Time</h2>
+            <h2 className="text-2xl font-semibold text-primary">3. Select Appointment Time</h2>
             <button
               onClick={() => setStep(2)}
               className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
             >
-              Change Doctor
+              Back
             </button>
           </div>
 
           {/* Selected Doctor Info */}
-          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg mb-6 border border-gray-200 shadow-sm">
             <img
-              className="w-16 h-16 rounded-full object-cover"
+              className="w-16 h-16 rounded-full object-cover border-2 border-primary"
               src={selectedDoctor.image}
               alt={selectedDoctor.name}
             />
@@ -759,8 +772,10 @@ const BookAppointmentForPatient = () => {
           </div>
 
           {/* Patient Summary */}
-          <div className="p-4 bg-blue-50 rounded-lg mb-6">
-            <h4 className="font-medium text-gray-900 mb-2">Patient: {getSelectedPatientData().name}</h4>
+          <div className="p-4 bg-blue-50 rounded-lg mb-6 border border-blue-200 shadow-sm">
+            <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+              <span className="text-primary">Patient:</span> {getSelectedPatientData().name}
+            </h4>
             <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
               <span>Age: {calculateAge(getSelectedPatientData().dob)} years</span>
               <span>Gender: {getSelectedPatientData().gender}</span>
@@ -782,7 +797,7 @@ const BookAppointmentForPatient = () => {
           </div>
 
           {/* Discount Section */}
-          <div className="p-4 bg-yellow-50 rounded-lg mb-6 border border-yellow-200">
+          <div className="p-4 bg-yellow-50 rounded-lg mb-6 border border-yellow-200 shadow-sm">
             <h4 className="font-medium text-gray-900 mb-3">Apply Discount (Optional)</h4>
             <div className="flex items-center gap-4">
               <div className="flex-1">
@@ -817,61 +832,88 @@ const BookAppointmentForPatient = () => {
             </div>
           </div>
 
-          {/* Date Selection */}
-          <div className="mb-4">
-            <p className="font-medium text-gray-700 mb-3">Select Date</p>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {docSlots.length &&
-                docSlots.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`text-center py-4 px-3 min-w-16 rounded-lg cursor-pointer border-2 transition-all ${
-                      slotIndex === index
-                        ? "border-primary bg-primary text-white"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    onClick={() => {
-                      setSlotIndex(index);
-                      setSlotTime("");
-                    }}
-                  >
-                    {item.length > 0 && (
-                      <>
-                        <p className="text-sm font-medium">{daysOfWeek[item[0].datetime.getDay()]}</p>
-                        <p className="text-lg">{item[0].datetime.getDate()}</p>
-                        <p className="text-xs">{item[0].datetime.toLocaleDateString('en-US', { month: 'short' })}</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </div>
+{/* Date Selection */}
+<div className="mb-4">
+  <p className="font-medium text-gray-700 mb-3">Select Date</p>
+  {slotsLoading ? (
+    <div className="flex items-center gap-2 text-primary">
+      <FaSpinner className="animate-spin" /> Loading available dates...
+    </div>
+  ) : docSlots.length > 0 ? (
+    <div className="flex gap-4 overflow-x-auto pb-2">
+      {docSlots.map((item, index) => (
+        <button
+          key={index}
+          className={`flex flex-col items-center justify-center min-w-[90px] px-6 py-5 rounded-xl border-2 transition-all duration-200 shadow-md
+            ${slotIndex === index
+              ? "bg-primary text-white border-primary scale-105 font-bold"
+              : "bg-white text-gray-800 border-gray-200 hover:border-primary hover:bg-blue-50"
+            }`}
+          style={{
+            outline: slotIndex === index ? "2px solid #6366f1" : "none",
+            outlineOffset: "2px",
+            cursor: "pointer"
+          }}
+          onClick={() => {
+            setSlotIndex(index);
+            setSlotTime("");
+          }}
+          title={`Select ${item[0]?.datetime.toLocaleDateString()}`}
+        >
+          {item.length > 0 && (
+            <>
+              <span className="uppercase text-sm font-semibold tracking-wide mb-2">
+                {daysOfWeek[item[0].datetime.getDay()]}
+              </span>
+              <span className="text-3xl font-extrabold leading-none mb-1">
+                {item[0].datetime.getDate()}
+              </span>
+              <span className="text-sm font-medium">
+                {item[0].datetime.toLocaleDateString('en-US', { month: 'short' })}
+              </span>
+            </>
+          )}
+        </button>
+      ))}
+    </div>
+  ) : (
+    <div className="text-red-500 py-4">No available dates for this doctor.</div>
+  )}
+</div>
 
           {/* Time Selection */}
           <div className="mb-6">
             <p className="font-medium text-gray-700 mb-3">Select Time</p>
-            <div className="flex flex-wrap gap-3">
-              {docSlots.length &&
-                docSlots[slotIndex].map((item, index) => (
+            {slotsLoading ? (
+              <div className="flex items-center gap-2 text-primary">
+                <FaSpinner className="animate-spin" /> Loading time slots...
+              </div>
+            ) : docSlots.length > 0 && docSlots[slotIndex]?.length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {docSlots[slotIndex].map((item, index) => (
                   <button
                     key={index}
                     onClick={() => setSlotTime(item.time)}
-                    className={`px-4 py-2 rounded-lg border transition-all ${
+                    className={`px-4 py-2 rounded-lg border transition-all shadow-sm ${
                       item.time === slotTime
-                        ? "bg-primary text-white border-primary"
-                        : "border-gray-300 hover:border-gray-400"
+                        ? "bg-primary text-white border-primary scale-105"
+                        : "border-gray-300 hover:border-primary hover:bg-blue-50"
                     }`}
+                    title={`Book at ${item.time}`}
                   >
                     {item.time.toLowerCase()}
                   </button>
                 ))}
-            </div>
+              </div>
+            ) : (
+              <div className="text-red-500 py-4">No available time slots for this date.</div>
+            )}
           </div>
 
           {/* Booking Summary & Confirm Button */}
           {slotTime && (
             <div className="border-t pt-6">
-              <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+              <div className="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-2">Booking Summary</h4>
                 <div className="text-sm space-y-1">
                   <p><strong>Patient:</strong> {getSelectedPatientData().name}</p>
@@ -907,7 +949,7 @@ const BookAppointmentForPatient = () => {
               <button
                 onClick={bookAppointment}
                 disabled={isBooking}
-                className="w-full bg-primary text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full bg-primary text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
               >
                 {isBooking ? (
                   <>

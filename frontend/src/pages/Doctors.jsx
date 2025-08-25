@@ -119,7 +119,7 @@ const Doctors = () => {
                 </div>
                 <p className="text-gray-900 text-lg font-medium">{item.name}</p>
                 <p className="text-gray-600 text-sm mb-3">{item.speciality}</p>
-                <p className="text-gray-600 text-sm mb-3">Fee: ${item.fee}</p>
+                <p className="text-gray-600 text-sm mb-3">Fee: Rs. {item.fee}</p>
                 
                 {item.available && (
                   <button

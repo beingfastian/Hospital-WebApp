@@ -10,7 +10,7 @@ import {
   sendDoctorAppointmentNotification, 
   sendAdminAppointmentNotification 
 } from "../config/emailService.js";
-import { sendWhatsAppConfirmation } from "../config/whatsappService.js";
+import { sendWhatsAppConfirmation, sendDoctorWhatsAppConfirmation, sendWhatsAppReminder, sendDoctorWhatsAppReminder } from "../config/whatsappService.js";
 
 // API to register user (enhanced with WhatsApp fields)
 const registerUser = async (req, res) => {
@@ -206,8 +206,8 @@ const bookAppointment = async (req, res) => {
     try {
       // Send WhatsApp notification if user has WhatsApp enabled
       if (userData.whatsappEnabled && userData.whatsappNumber) {
-        console.log('Sending WhatsApp notification to:', userData.whatsappNumber);
-        await sendWhatsAppConfirmation(
+        console.log('Attempting WhatsApp notification to patient:', userData.whatsappNumber);
+        const patientWhatsAppResult = await sendWhatsAppConfirmation(
           userData.whatsappNumber,
           userData.name,
           docData.name,
@@ -217,9 +217,35 @@ const bookAppointment = async (req, res) => {
           docData.fee,
           newAppointment._id.toString()
         );
-        console.log('WhatsApp notification sent successfully');
+        if (patientWhatsAppResult.success) {
+          console.log('WhatsApp notification sent to patient:', patientWhatsAppResult.messageId);
+        } else {
+          console.error('WhatsApp notification to patient failed:', patientWhatsAppResult.error || patientWhatsAppResult.message);
+        }
       } else {
-        console.log('WhatsApp not enabled for user or no WhatsApp number');
+        console.log('WhatsApp not enabled for patient or no WhatsApp number');
+      }
+
+      // Send WhatsApp notification to doctor if enabled
+      if (docData.whatsappEnabled && docData.whatsappNumber) {
+        console.log('Attempting WhatsApp notification to doctor:', docData.whatsappNumber);
+        const doctorWhatsAppResult = await sendDoctorWhatsAppConfirmation(
+          docData.whatsappNumber,
+          docData.name,
+          userData.name,
+          userData.phone,
+          slotDate,
+          slotTime,
+          docData.fee,
+          newAppointment._id.toString()
+        );
+        if (doctorWhatsAppResult.success) {
+          console.log('WhatsApp notification sent to doctor:', doctorWhatsAppResult.messageId);
+        } else {
+          console.error('WhatsApp notification to doctor failed:', doctorWhatsAppResult.error || doctorWhatsAppResult.message);
+        }
+      } else {
+        console.log('WhatsApp not enabled for doctor or no WhatsApp number');
       }
 
       // Always send email notifications
@@ -337,6 +363,68 @@ const getUserByWhatsApp = async (req, res) => {
   }
 };
 
+// Reminder service for both doctor and patient (to be called by a scheduler/cron)
+const sendAppointmentReminders = async (req, res) => {
+  try {
+    // Find appointments in the next hour (adjust as needed)
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+
+    // Find all appointments that are not cancelled or completed and are within the next hour
+    const appointments = await appointmentModel.find({
+      cancelled: { $ne: true },
+      isCompleted: { $ne: true },
+    });
+
+    let remindersSent = 0;
+
+    for (const apt of appointments) {
+      // Parse appointment date and time
+      const [day, month, year] = apt.slotDate.split('_').map(Number);
+      const [time, modifier] = apt.slotTime.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (modifier && modifier.toLowerCase() === 'pm' && hours < 12) hours += 12;
+      if (modifier && modifier.toLowerCase() === 'am' && hours === 12) hours = 0;
+      const aptDate = new Date(year, month - 1, day, hours, minutes);
+
+      // If appointment is within the next hour
+      if (aptDate > now && aptDate <= oneHourLater) {
+        // Patient reminder
+        if (apt.userData?.whatsappEnabled && apt.userData?.whatsappNumber) {
+          await sendWhatsAppReminder(
+            apt.userData.whatsappNumber,
+            apt.userData.name,
+            apt.docData.name,
+            apt.slotDate,
+            apt.slotTime
+          );
+          remindersSent++;
+        }
+        // Doctor reminder
+        if (apt.docData?.whatsappEnabled && apt.docData?.whatsappNumber) {
+          await sendDoctorWhatsAppReminder(
+            apt.docData.whatsappNumber,
+            apt.docData.name,
+            apt.userData.name,
+            apt.slotDate,
+            apt.slotTime
+          );
+          remindersSent++;
+        }
+      }
+    }
+
+    if (res) {
+      res.json({ success: true, message: `Reminders sent: ${remindersSent}` });
+    }
+  } catch (error) {
+    console.error('Error sending reminders:', error);
+    if (res) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+};
+
 export {
   registerUser,
   loginUser,
@@ -346,4 +434,5 @@ export {
   listAppointment,
   cancelAppointment,
   getUserByWhatsApp,
+  sendAppointmentReminders,
 };

@@ -399,3 +399,6 @@ const DoctorLeaveRequest = () => {
 };
 
 export default DoctorLeaveRequest;
+
+// Doctor can submit leave requests, view status, and cancel pending requests.
+// No changes required.
