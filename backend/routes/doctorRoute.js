@@ -1,3 +1,4 @@
+// Fixed doctorRoute.js - Ensure proper route configuration
 import express from "express";
 import {
   appointmentsDoctor,
@@ -16,8 +17,11 @@ import authDoctor from "../middleware/authDoctor.js";
 
 const doctorRouter = express.Router();
 
+// Public routes
 doctorRouter.get("/list", doctorList);
 doctorRouter.post("/login", loginDoctor);
+
+// Protected routes (require authentication)
 doctorRouter.get("/appointments", authDoctor, appointmentsDoctor);
 doctorRouter.post("/complete-appointment", authDoctor, appointmentComplete);
 doctorRouter.post("/cancel-appointment", authDoctor, appointmentCancel);
@@ -25,7 +29,7 @@ doctorRouter.get("/dashboard", authDoctor, doctorDashboard);
 doctorRouter.get("/profile", authDoctor, doctorProfile);
 doctorRouter.post("/update-profile", authDoctor, updateDoctorProfile);
 
-// Leave request routes
+// Leave request routes with proper HTTP methods
 doctorRouter.post("/request-leave", authDoctor, requestLeave);
 doctorRouter.get("/leave-requests", authDoctor, listLeaveRequests);
 doctorRouter.delete("/cancel-leave-request/:id", authDoctor, cancelLeaveRequest);

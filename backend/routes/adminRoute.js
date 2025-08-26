@@ -14,12 +14,20 @@ import {
   deletePatient,
   bookAppointmentForPatient,
   getWhatsAppStats,
+  // Make sure these are imported correctly
+  getAllLeaveRequests,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+  getLeaveStats,
 } from "../controllers/adminController.js";
 import upload from "../middleware/multer.js";
 import authAdmin from "../middleware/authAdmin.js";
 import { changeAvailabilities } from "../controllers/doctorController.js";
 
 const adminRouter = express.Router();
+
+// Authentication (public route)
+adminRouter.post("/login", loginAdmin);
 
 // Doctor Management Routes
 adminRouter.post("/add-doctor", authAdmin, upload.single("image"), addDoctor);
@@ -36,14 +44,17 @@ adminRouter.delete("/delete-patient/:patientId", authAdmin, deletePatient);
 
 // Appointment Management Routes
 adminRouter.get("/appointments", authAdmin, appointmentsAdmin);
-adminRouter.post("/cancel-appointments", authAdmin, appointmentCancel);
+adminRouter.post("/cancel-appointment", authAdmin, appointmentCancel); // Fixed: removed 's'
 adminRouter.post("/book-appointment-for-patient", authAdmin, bookAppointmentForPatient);
+
+// Leave Management Routes - Ensure these are properly defined
+adminRouter.get("/leave-requests", authAdmin, getAllLeaveRequests);
+adminRouter.post("/approve-leave", authAdmin, approveLeaveRequest);
+adminRouter.post("/reject-leave", authAdmin, rejectLeaveRequest);
+adminRouter.get("/leave-stats", authAdmin, getLeaveStats);
 
 // Dashboard and Statistics
 adminRouter.get("/dashboard", authAdmin, adminDashboard);
 adminRouter.get("/whatsapp-stats", authAdmin, getWhatsAppStats);
-
-// Authentication
-adminRouter.post("/login", loginAdmin);
 
 export default adminRouter;

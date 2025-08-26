@@ -19,7 +19,7 @@ import DoctorDashboard from "./pages/Doctor/DoctorDashboard.jsx";
 import DoctorAppointments from "./pages/Doctor/DoctorAppointments.jsx";
 import DoctorProfile from "./pages/Doctor/DoctorProfile.jsx";
 import DoctorLeaveRequest from "./pages/Doctor/DoctorLeaveRequest";
-
+import AdminLeaveManagement from './pages/Admin/AdminLeaveManagement.jsx';
 const App = () => {
   const { aToken } = useContext(AdminContext);
   const { dToken } = useContext(DoctorContext);
@@ -54,6 +54,7 @@ const App = () => {
           <Route path="/doctor/appointments" element={<DoctorAppointments />} />
           <Route path="/doctor/profile" element={<DoctorProfile />} />
           <Route path="/doctor/leave-requests" element={<DoctorLeaveRequest />} />
+          <Route path="/leave-management" element={<AdminLeaveManagement />} />
         </Routes>
       </div>
     </div>

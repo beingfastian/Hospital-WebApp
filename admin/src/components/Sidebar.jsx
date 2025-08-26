@@ -3,7 +3,7 @@ import { AdminContext } from "../context/AdminContext";
 import { NavLink } from "react-router-dom";
 import { assets } from "../assets/assets.js";
 import { DoctorContext } from "../context/DoctorContext.jsx";
-import { FaCog, FaUserPlus, FaUsers, FaUserMd, FaEdit } from "react-icons/fa";
+import { FaCog, FaUserPlus, FaUsers, FaUserMd, FaEdit, FaCalendarCheck } from "react-icons/fa";
 
 const Sidebar = () => {
   const { aToken } = useContext(AdminContext);
@@ -101,6 +101,21 @@ const Sidebar = () => {
           >
             <img src={assets.people_icon} alt="" />
             <p className="hidden md:block">Add Patient</p>
+          </NavLink>
+
+          {/* Leave Management Section - NEW */}
+          <NavLink
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
+                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
+              }`
+            }
+            to={"/leave-management"}
+          >
+            <div className="w-6 h-6 flex items-center justify-center">
+              <FaCalendarCheck className="text-xl text-gray-600" />
+            </div>
+            <p className="hidden md:block">Leave Management</p>
           </NavLink>
 
           {/* Settings */}

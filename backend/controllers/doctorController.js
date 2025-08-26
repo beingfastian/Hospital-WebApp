@@ -434,24 +434,47 @@ const updateDoctorProfile = async (req, res) => {
 // Doctor applies for leave
 const requestLeave = async (req, res) => {
   try {
-    const doctorId = req.doctorId; // Only use req.doctorId from authDoctor
+    // Get doctorId from multiple sources for compatibility
+    const doctorId = req.doctorId || req.body.docId || req.headers.docid;
     const { fromDate, toDate, reason, type } = req.body;
 
+    console.log('Leave request received:', { doctorId, fromDate, toDate, reason, type });
+
     if (!doctorId) {
+      console.log('No doctor ID found in request');
       return res.json({ success: false, message: "Doctor not authenticated" });
     }
+
     if (!fromDate || !toDate || !reason) {
       return res.json({ success: false, message: "All fields are required" });
     }
 
-    // Check for overlapping leave
+    // Validate dates
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (from < today) {
+      return res.json({ success: false, message: "From date cannot be in the past" });
+    }
+
+    if (to < from) {
+      return res.json({ success: false, message: "To date must be after from date" });
+    }
+
+    // Check for overlapping leave requests
     const overlap = await leaveRequestModel.findOne({
       doctorId,
       status: { $ne: "rejected" },
       $or: [
-        { fromDate: { $lte: new Date(toDate) }, toDate: { $gte: new Date(fromDate) } },
+        { 
+          fromDate: { $lte: new Date(toDate) }, 
+          toDate: { $gte: new Date(fromDate) } 
+        },
       ],
     });
+
     if (overlap) {
       return res.json({
         success: false,
@@ -459,17 +482,20 @@ const requestLeave = async (req, res) => {
       });
     }
 
-    await leaveRequestModel.create({
+    // Create leave request
+    const leaveRequest = await leaveRequestModel.create({
       doctorId,
-      fromDate,
-      toDate,
+      fromDate: new Date(fromDate),
+      toDate: new Date(toDate),
       reason,
-      type,
+      type: type || "vacation",
     });
 
-    res.json({ success: true, message: "Leave request submitted" });
+    console.log('Leave request created:', leaveRequest);
+
+    res.json({ success: true, message: "Leave request submitted successfully" });
   } catch (error) {
-    console.error(error);
+    console.error('Error in requestLeave:', error);
     res.json({ success: false, message: error.message });
   }
 };

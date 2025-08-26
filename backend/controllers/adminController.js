@@ -5,6 +5,7 @@ import doctorModel from "../model/doctorModel.js";
 import jwt from "jsonwebtoken";
 import appointmentModel from "../model/appointmentModel.js";
 import userModel from "../model/userModel.js";
+import leaveRequestModel from "../model/leaveRequestModel.js";
 import { 
   sendUserAppointmentConfirmation, 
   sendDoctorAppointmentNotification, 
@@ -162,6 +163,159 @@ const updateDoctor = async (req, res) => {
     });
 
     res.json({ success: true, message: "Doctor updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const getAllLeaveRequests = async (req, res) => {
+  try {
+    const leaveRequests = await leaveRequestModel.find({})
+      .populate('doctorId', 'name email speciality image') // Populate doctor info
+      .sort({ submittedAt: -1 });
+
+    // If populate doesn't work (because doctorId is String), fetch doctor data manually
+    const requestsWithDoctorData = await Promise.all(
+      leaveRequests.map(async (request) => {
+        const doctor = await doctorModel.findById(request.doctorId).select('name email speciality image');
+        return {
+          ...request.toObject(),
+          doctorData: doctor
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      leaveRequests: requestsWithDoctorData 
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+const approveLeaveRequest = async (req, res) => {
+  try {
+    const { requestId, adminResponse } = req.body;
+
+    if (!requestId) {
+      return res.json({ success: false, message: "Request ID is required" });
+    }
+
+    const leaveRequest = await leaveRequestModel.findById(requestId);
+    if (!leaveRequest) {
+      return res.json({ success: false, message: "Leave request not found" });
+    }
+
+    if (leaveRequest.status !== 'pending') {
+      return res.json({ success: false, message: "Leave request is not pending" });
+    }
+
+    await leaveRequestModel.findByIdAndUpdate(requestId, {
+      status: 'approved',
+      adminResponse: adminResponse || 'Leave request approved',
+      approvedBy: 'admin', // You can store actual admin ID here
+      approvedAt: new Date()
+    });
+
+    // Get doctor info for notification
+    const doctor = await doctorModel.findById(leaveRequest.doctorId);
+    
+    // Send notification to doctor (optional)
+    try {
+      if (doctor && doctor.email) {
+        // You can implement email notification here
+        console.log(`Leave approved for Dr. ${doctor.name}`);
+      }
+    } catch (notificationError) {
+      console.error('Notification error:', notificationError);
+      // Don't fail the approval if notification fails
+    }
+
+    res.json({ success: true, message: "Leave request approved successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to reject leave request
+const rejectLeaveRequest = async (req, res) => {
+  try {
+    const { requestId, adminResponse } = req.body;
+
+    if (!requestId) {
+      return res.json({ success: false, message: "Request ID is required" });
+    }
+
+    if (!adminResponse || adminResponse.trim() === '') {
+      return res.json({ success: false, message: "Rejection reason is required" });
+    }
+
+    const leaveRequest = await leaveRequestModel.findById(requestId);
+    if (!leaveRequest) {
+      return res.json({ success: false, message: "Leave request not found" });
+    }
+
+    if (leaveRequest.status !== 'pending') {
+      return res.json({ success: false, message: "Leave request is not pending" });
+    }
+
+    await leaveRequestModel.findByIdAndUpdate(requestId, {
+      status: 'rejected',
+      adminResponse,
+      approvedBy: 'admin',
+      approvedAt: new Date()
+    });
+
+    // Get doctor info for notification
+    const doctor = await doctorModel.findById(leaveRequest.doctorId);
+    
+    // Send notification to doctor (optional)
+    try {
+      if (doctor && doctor.email) {
+        console.log(`Leave rejected for Dr. ${doctor.name}: ${adminResponse}`);
+      }
+    } catch (notificationError) {
+      console.error('Notification error:', notificationError);
+    }
+
+    res.json({ success: true, message: "Leave request rejected successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get leave requests statistics
+const getLeaveStats = async (req, res) => {
+  try {
+    const totalRequests = await leaveRequestModel.countDocuments({});
+    const pendingRequests = await leaveRequestModel.countDocuments({ status: 'pending' });
+    const approvedRequests = await leaveRequestModel.countDocuments({ status: 'approved' });
+    const rejectedRequests = await leaveRequestModel.countDocuments({ status: 'rejected' });
+
+    // Get current month's requests
+    const currentMonth = new Date();
+    const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+    const monthlyRequests = await leaveRequestModel.countDocuments({
+      submittedAt: { $gte: startOfMonth, $lte: endOfMonth }
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        total: totalRequests,
+        pending: pendingRequests,
+        approved: approvedRequests,
+        rejected: rejectedRequests,
+        thisMonth: monthlyRequests
+      }
+    });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
@@ -679,4 +833,9 @@ export {
   appointmentCancel,
   getWhatsAppStats,
   adminDashboard,
+  // Add these new exports:
+  getAllLeaveRequests,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+  getLeaveStats,
 };

@@ -2,18 +2,24 @@ import React, { useContext, useState, useEffect } from "react";
 import { DoctorContext } from "../../context/DoctorContext";
 import { toast } from "react-toastify";
 import { FaCalendarAlt, FaPlus, FaTrash, FaEye, FaClock } from "react-icons/fa";
-import axios from "axios";
 
 const DoctorLeaveRequest = () => {
-  const { dToken, backendUrl } = useContext(DoctorContext);
-  const [leaveRequests, setLeaveRequests] = useState([]);
+  const { 
+    dToken, 
+    backendUrl, 
+    leaveRequests, 
+    requestLeave, 
+    getLeaveRequests, 
+    cancelLeaveRequest 
+  } = useContext(DoctorContext);
+  
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fromDate: "",
     toDate: "",
     reason: "",
-    type: "vacation" // vacation, sick, emergency, other
+    type: "vacation"
   });
 
   const leaveTypes = [
@@ -34,23 +40,6 @@ const DoctorLeaveRequest = () => {
   const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
-  };
-
-  // Fetch leave requests
-  const getLeaveRequests = async () => {
-    try {
-      const { data } = await axios.get(backendUrl + "/api/doctor/leave-requests", {
-        headers: { dToken }
-      });
-      if (data.success) {
-        setLeaveRequests(data.leaveRequests);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to fetch leave requests");
-    }
   };
 
   // Submit leave request
@@ -95,14 +84,9 @@ const DoctorLeaveRequest = () => {
 
     setLoading(true);
     try {
-      const { data } = await axios.post(
-        backendUrl + "/api/doctor/request-leave",
-        formData,
-        { headers: { dToken } }
-      );
-
-      if (data.success) {
-        toast.success("Leave request submitted successfully");
+      const result = await requestLeave(formData);
+      
+      if (result.success) {
         setFormData({
           fromDate: "",
           toDate: "",
@@ -110,39 +94,24 @@ const DoctorLeaveRequest = () => {
           type: "vacation"
         });
         setShowForm(false);
-        getLeaveRequests();
-      } else {
-        toast.error(data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to submit leave request");
+      console.error('Error submitting leave request:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Cancel leave request (only pending ones)
-  const cancelLeaveRequest = async (requestId) => {
+  // Handle cancel leave request
+  const handleCancelLeaveRequest = async (requestId) => {
     if (!window.confirm("Are you sure you want to cancel this leave request?")) {
       return;
     }
 
     try {
-      const { data } = await axios.delete(
-        backendUrl + `/api/doctor/cancel-leave-request/${requestId}`,
-        { headers: { dToken } }
-      );
-
-      if (data.success) {
-        toast.success("Leave request cancelled");
-        getLeaveRequests();
-      } else {
-        toast.error(data.message);
-      }
+      await cancelLeaveRequest(requestId);
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to cancel leave request");
+      console.error('Error cancelling leave request:', error);
     }
   };
 
@@ -165,8 +134,10 @@ const DoctorLeaveRequest = () => {
     });
   };
 
+  // Load leave requests on component mount
   useEffect(() => {
     if (dToken) {
+      console.log('Loading leave requests...');
       getLeaveRequests();
     }
   }, [dToken]);
@@ -284,7 +255,7 @@ const DoctorLeaveRequest = () => {
           <h2 className="text-lg font-medium">Your Leave Requests</h2>
         </div>
         
-        {leaveRequests.length === 0 ? (
+        {!leaveRequests || leaveRequests.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <FaCalendarAlt className="mx-auto text-4xl mb-4 text-gray-300" />
             <p>No leave requests found</p>
@@ -343,7 +314,7 @@ const DoctorLeaveRequest = () => {
                       <div className="flex items-center gap-2">
                         {request.status === 'pending' && (
                           <button
-                            onClick={() => cancelLeaveRequest(request._id)}
+                            onClick={() => handleCancelLeaveRequest(request._id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                             title="Cancel Request"
                           >
@@ -399,6 +370,3 @@ const DoctorLeaveRequest = () => {
 };
 
 export default DoctorLeaveRequest;
-
-// Doctor can submit leave requests, view status, and cancel pending requests.
-// No changes required.
