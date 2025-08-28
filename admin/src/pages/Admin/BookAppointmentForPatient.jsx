@@ -1,9 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
 import { AppContext } from "../../context/AppContext.jsx";
-import { assets } from "../../assets/assets.js";
 import { toast } from "react-toastify";
-import { FaWhatsapp, FaEnvelope, FaUser, FaCalendarAlt, FaSpinner, FaPlus, FaSearch } from "react-icons/fa";
+import { FaWhatsapp, FaEnvelope, FaUser, FaCalendarAlt, FaSpinner, FaPlus, FaSearch, FaClock, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import axios from "axios";
 
 const BookAppointmentForPatient = () => {
@@ -15,35 +14,34 @@ const BookAppointmentForPatient = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [filteredPatients, setFilteredPatients] = useState([]);
-
-  // New patient form state (updated without password, added CNIC)
+  // New patient form state
   const [newPatientData, setNewPatientData] = useState({
     name: "",
     email: "",
     phone: "",
-    cnic: "", // Added CNIC field
+    cnic: "",
     dob: "",
     gender: "Male",
-    address: {
-      line1: "",
-      line2: ""
-    },
+    address: { line1: "", line2: "" },
     whatsappEnabled: false,
     whatsappNumber: ""
   });
-
   // Appointment booking state
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [docSlots, setDocSlots] = useState([]);
   const [slotIndex, setSlotIndex] = useState(0);
   const [slotTime, setSlotTime] = useState("");
   const [isBooking, setIsBooking] = useState(false);
   const [step, setStep] = useState(1);
-  const [discountPercent, setDiscountPercent] = useState(0); // Added discount
-  const [slotsLoading, setSlotsLoading] = useState(false); // New state for loading slots
-
-  const daysOfWeek = [
-    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
 
   useEffect(() => {
@@ -67,61 +65,30 @@ const BookAppointmentForPatient = () => {
     }
   }, [patients, patientSearchTerm]);
 
-  // Updated getAvailableSlots for 3 months (current + next 2 months)
-  const getAvailableSlots = (doctor) => {
+  const getAvailableSlots = (doctor, month, year) => {
     setSlotsLoading(true);
     setDocSlots([]);
-
-    let today = new Date();
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0);
+    const today = new Date();
     
-    // Extend to next 3 months instead of just current month
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 3); // Extended to 3 months
-    endDate.setDate(0); // Last day of the third month
-
-    if (today.getHours() >= 20) {
-      const lastDayOfMonth = new Date(
-        today.getFullYear(),
-        today.getMonth() + 1,
-        0
-      ).getDate();
-      if (today.getDate() === lastDayOfMonth) {
-        today.setMonth(today.getMonth() + 1, 1);
-      } else {
-        today.setDate(today.getDate() + 1);
-      }
-      today.setHours(10, 0, 0, 0);
-    }
-
-    // Calculate total days to show (approximately 90 days for 3 months)
-    const totalDays = Math.floor((endDate - today) / (1000 * 60 * 60 * 24)) + 1;
-    const daysToShow = Math.min(totalDays, 90); // Cap at 90 days
-
-    for (let i = 0; i < daysToShow; i++) {
-      let currentDate = new Date(today);
-      currentDate.setDate(today.getDate() + i);
+    let currentDate = startDate.getDate() === today.getDate() && 
+                     startDate.getMonth() === today.getMonth() && 
+                     startDate.getFullYear() === today.getFullYear() 
+                     ? today : startDate;
+    const slots = [];
+    
+    for (let date = new Date(currentDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const dayOfWeek = date.getDay();
+      const dayName = daysOfWeek[dayOfWeek];
       
-      // Check if doctor is available on this day
-      const dayOfWeek = currentDate.getDay();
-      const dayName = daysOfWeek[dayOfWeek]; // now matches "monday", etc.
-      
-      // Skip if doctor is not available on this day (based on sitting days)
       if (doctor.sittingDays && !doctor.sittingDays.includes(dayName)) {
         continue;
       }
-
-      // Check if doctor is on leave on this date
-      const dateStr = `${currentDate.getDate()}_${currentDate.getMonth() + 1}_${currentDate.getFullYear()}`;
-      if (doctor.leaveRequests && doctor.leaveRequests.some(leave => 
-        leave.status === 'approved' && isDateInRange(currentDate, leave.fromDate, leave.toDate)
-      )) {
-        continue;
-      }
-
-      let startTime = new Date(currentDate);
-      let endTime = new Date(currentDate);
       
-      // Use doctor's timings if available, otherwise default times
+      let startTime = new Date(date);
+      let endTime = new Date(date);
+      
       if (doctor.timings) {
         const [startHour, startMin] = doctor.timings.start.split(':');
         const [endHour, endMin] = doctor.timings.end.split(':');
@@ -131,14 +98,11 @@ const BookAppointmentForPatient = () => {
         startTime.setHours(10, 0, 0, 0);
         endTime.setHours(21, 0, 0, 0);
       }
-
-      if (today.getDate() === currentDate.getDate() && today.getMonth() === currentDate.getMonth()) {
-        const now = new Date();
-        if (now.getHours() >= startTime.getHours()) {
-          startTime.setHours(now.getHours() + 1, now.getMinutes() > 30 ? 30 : 0, 0, 0);
-        }
+      
+      if (date.toDateString() === today.toDateString() && today.getHours() >= startTime.getHours()) {
+        startTime.setHours(today.getHours() + 1, today.getMinutes() > 30 ? 30 : 0, 0, 0);
       }
-
+      
       let timeSlots = [];
       let tempTime = new Date(startTime);
       
@@ -149,52 +113,36 @@ const BookAppointmentForPatient = () => {
           hour12: true,
         });
         
-        const slotDate = `${currentDate.getDate()}_${currentDate.getMonth() + 1}_${currentDate.getFullYear()}`;
+        const slotDate = `${date.getDate()}_${date.getMonth() + 1}_${date.getFullYear()}`;
         const isSlotAvailable = 
           doctor.slots_booked[slotDate] && 
           doctor.slots_booked[slotDate].includes(formattedTime) ? false : true;
-
+          
         if (isSlotAvailable) {
           timeSlots.push({
             datetime: new Date(tempTime),
             time: formattedTime,
           });
         }
-
         tempTime.setMinutes(tempTime.getMinutes() + 30);
       }
-
+      
       if (timeSlots.length > 0) {
-        setDocSlots((prev) => [...prev, timeSlots]);
+        slots.push(timeSlots);
       }
     }
+    
+    setDocSlots(slots);
     setSlotsLoading(false);
   };
 
-  // Helper function to check if a date is in leave range
-  const isDateInRange = (date, fromDate, toDate) => {
-    const checkDate = new Date(date);
-    const start = new Date(fromDate);
-    const end = new Date(toDate);
-    return checkDate >= start && checkDate <= end;
-  };
-
-  // CNIC validation function
   const validateCNIC = (cnic) => {
-    // Remove any dashes and spaces
     const cleanCNIC = cnic.replace(/[-\s]/g, '');
-    
-    // Check if it's exactly 13 digits
-    if (!/^\d{13}$/.test(cleanCNIC)) {
-      return false;
-    }
-    
-    return true;
+    return /^\d{13}$/.test(cleanCNIC);
   };
 
   const handleNewPatientDataChange = (field, value) => {
     if (field === 'cnic') {
-      // Clean CNIC input - remove dashes and limit to numbers only
       const cleanValue = value.replace(/[-\s]/g, '').replace(/\D/g, '');
       if (cleanValue.length <= 13) {
         setNewPatientData(prev => ({ ...prev, [field]: cleanValue }));
@@ -206,16 +154,10 @@ const BookAppointmentForPatient = () => {
       const [parent, child] = field.split('.');
       setNewPatientData(prev => ({
         ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
+        [parent]: { ...prev[parent], [child]: value }
       }));
     } else {
-      setNewPatientData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+      setNewPatientData(prev => ({ ...prev, [field]: value }));
     }
   };
 
@@ -242,7 +184,7 @@ const BookAppointmentForPatient = () => {
         toast.error("Please enter a valid email address");
         return false;
       }
-
+      
       if (newPatientData.whatsappEnabled && !newPatientData.whatsappNumber) {
         toast.error("Please enter WhatsApp number when WhatsApp is enabled");
         return false;
@@ -253,13 +195,21 @@ const BookAppointmentForPatient = () => {
 
   const handleDoctorSelection = (doctor) => {
     setSelectedDoctor(doctor);
-    getAvailableSlots(doctor);
+    getAvailableSlots(doctor, selectedMonth, selectedYear);
     setStep(3);
     setSlotIndex(0);
     setSlotTime("");
   };
 
-  // Calculate discounted fee
+  const handleMonthChange = (monthIndex) => {
+    setSelectedMonth(monthIndex);
+    if (selectedDoctor) {
+      getAvailableSlots(selectedDoctor, monthIndex, selectedYear);
+    }
+    setSlotIndex(0);
+    setSlotTime("");
+  };
+
   const calculateDiscountedFee = () => {
     if (!selectedDoctor || !discountPercent) return selectedDoctor?.fee || 0;
     const discount = (selectedDoctor.fee * discountPercent) / 100;
@@ -272,17 +222,12 @@ const BookAppointmentForPatient = () => {
         toast.error("Please select a doctor and time slot");
         return;
       }
-
+      
       setIsBooking(true);
       const date = docSlots[slotIndex][0].datetime;
-
-      let day = date.getDate();
-      let month = date.getMonth() + 1;
-      let year = date.getFullYear();
-
-      const slotDate = day + "_" + month + "_" + year;
+      const slotDate = `${date.getDate()}_${date.getMonth() + 1}_${date.getFullYear()}`;
       const finalFee = calculateDiscountedFee();
-
+      
       const bookingData = {
         patientSelectionMode,
         selectedPatientId: selectedPatient?._id || null,
@@ -293,39 +238,28 @@ const BookAppointmentForPatient = () => {
         discountPercent: discountPercent || 0,
         finalFee: finalFee
       };
-
+      
       const { data } = await axios.post(
         backendUrl + "/api/admin/book-appointment-for-patient",
         bookingData,
         { headers: { aToken } }
       );
-
+      
       if (data.success) {
         toast.success(data.message);
         
         const patientData = selectedPatient || newPatientData;
         if (patientData.whatsappEnabled) {
-          toast.info("WhatsApp confirmation will be sent to patient!", {
-            icon: <FaWhatsapp className="text-green-500" />
-          });
+          toast.info("WhatsApp confirmation will be sent to patient!");
         } else {
-          toast.info("Email confirmation will be sent to patient!", {
-            icon: <FaEnvelope className="text-blue-500" />
-          });
+          toast.info("Email confirmation will be sent to patient!");
         }
         
         // Reset form
         setSelectedPatient(null);
         setNewPatientData({
-          name: "",
-          email: "",
-          phone: "",
-          cnic: "",
-          dob: "",
-          gender: "Male",
-          address: { line1: "", line2: "" },
-          whatsappEnabled: false,
-          whatsappNumber: ""
+          name: "", email: "", phone: "", cnic: "", dob: "", gender: "Male",
+          address: { line1: "", line2: "" }, whatsappEnabled: false, whatsappNumber: ""
         });
         setSelectedDoctor(null);
         setStep(1);
@@ -348,15 +282,8 @@ const BookAppointmentForPatient = () => {
   const resetForm = () => {
     setSelectedPatient(null);
     setNewPatientData({
-      name: "",
-      email: "",
-      phone: "",
-      cnic: "",
-      dob: "",
-      gender: "Male",
-      address: { line1: "", line2: "" },
-      whatsappEnabled: false,
-      whatsappNumber: ""
+      name: "", email: "", phone: "", cnic: "", dob: "", gender: "Male",
+      address: { line1: "", line2: "" }, whatsappEnabled: false, whatsappNumber: ""
     });
     setSelectedDoctor(null);
     setStep(1);
@@ -370,93 +297,99 @@ const BookAppointmentForPatient = () => {
   };
 
   return (
-    <div className="m-5 max-w-6xl">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-primary">Book Appointment for Patient</h1>
-        {step > 1 && (
-          <button
-            onClick={resetForm}
-            className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
-          >
-            Start Over
-          </button>
-        )}
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-blue-600">Book Appointment for Patient</h1>
+            <p className="text-gray-600 mt-1">Schedule appointments for patients with available doctors</p>
+          </div>
+          {step > 1 && (
+            <button
+              onClick={resetForm}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Start Over
+            </button>
+          )}
+        </div>
+        
+        {/* Progress Steps */}
+        <div className="flex items-center justify-center mb-8">
+          <div className="flex items-center space-x-8">
+            <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'} transition-all`}>
+                <FaUser />
+              </div>
+              <span className="ml-3 font-medium">Select Patient</span>
+            </div>
+            <div className={`w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'} transition-all`}></div>
+            <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'} transition-all`}>
+                <FaUser />
+              </div>
+              <span className="ml-3 font-medium">Select Doctor</span>
+            </div>
+            <div className={`w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-200'} transition-all`}></div>
+            <div className={`flex items-center ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'} transition-all`}>
+                <FaCalendarAlt />
+              </div>
+              <span className="ml-3 font-medium">Select Time</span>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Progress Steps */}
-      <div className="flex items-center mb-8">
-        <div className={`flex items-center ${step >= 1 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-            <FaUser />
-          </div>
-          <span className="ml-2 font-medium">Select Patient</span>
-        </div>
-        <div className={`w-16 h-0.5 mx-4 ${step >= 2 ? 'bg-primary' : 'bg-gray-200'}`}></div>
-        <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-            <FaUser />
-          </div>
-          <span className="ml-2 font-medium">Select Doctor</span>
-        </div>
-        <div className={`w-16 h-0.5 mx-4 ${step >= 3 ? 'bg-primary' : 'bg-gray-200'}`}></div>
-        <div className={`flex items-center ${step >= 3 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-            <FaCalendarAlt />
-          </div>
-          <span className="ml-2 font-medium">Select Time</span>
-        </div>
-      </div>
-
+      
       {/* Step 1: Patient Selection */}
       {step === 1 && (
-        <div className="bg-white p-8 rounded-lg border shadow">
-          <h2 className="text-2xl font-semibold mb-4 text-primary">1. Select Patient</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">1. Select Patient</h2>
           
           <div className="flex items-center gap-4 mb-6">
             <button
               onClick={() => setPatientSelectionMode("existing")}
-              className={`px-4 py-2 rounded-full border transition-all ${
+              className={`px-6 py-3 rounded-xl border transition-all ${
                 patientSelectionMode === "existing" 
-                  ? "bg-primary text-white border-primary" 
-                  : "border-gray-300 hover:border-gray-400"
+                  ? "bg-blue-600 text-white border-blue-600" 
+                  : "border-gray-300 hover:border-gray-400 text-gray-700"
               }`}
             >
               Select Existing Patient
             </button>
             <button
               onClick={() => setPatientSelectionMode("new")}
-              className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 ${
+              className={`px-6 py-3 rounded-xl border transition-all flex items-center gap-2 ${
                 patientSelectionMode === "new" 
-                  ? "bg-primary text-white border-primary" 
-                  : "border-gray-300 hover:border-gray-400"
+                  ? "bg-blue-600 text-white border-blue-600" 
+                  : "border-gray-300 hover:border-gray-400 text-gray-700"
               }`}
             >
-              <FaPlus /> Add New Patient
+              <FaPlus className="text-sm" /> Add New Patient
             </button>
           </div>
-
-          {/* Existing Patient Selection */}
+          
           {patientSelectionMode === "existing" && (
             <div>
               <div className="relative mb-4">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search patients by name, email, phone, or CNIC..."
                   value={patientSearchTerm}
                   onChange={(e) => setPatientSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-80 overflow-y-auto">
                 {filteredPatients.map((patient) => (
                   <div
                     key={patient._id}
                     onClick={() => setSelectedPatient(patient)}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                    className={`border rounded-xl p-4 cursor-pointer transition-all hover:shadow-md ${
                       selectedPatient?._id === patient._id 
-                        ? "border-primary bg-blue-50" 
+                        ? "border-blue-600 bg-blue-50 shadow-md" 
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
@@ -467,12 +400,9 @@ const BookAppointmentForPatient = () => {
                         className="w-12 h-12 rounded-full object-cover"
                       />
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{patient.name}</h3>
+                        <h3 className="font-semibold text-gray-900">{patient.name}</h3>
                         <p className="text-sm text-gray-600">{patient.email}</p>
-                        <p className="text-sm text-gray-600">{patient.phone}</p>
-                        {patient.cnic && (
-                          <p className="text-sm text-gray-500">CNIC: {patient.cnic}</p>
-                        )}
+                        <p className="text-sm text-gray-500">{patient.phone}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-gray-500">
                             {calculateAge(patient.dob)} years, {patient.gender}
@@ -486,7 +416,7 @@ const BookAppointmentForPatient = () => {
                   </div>
                 ))}
               </div>
-
+              
               {filteredPatients.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   {patientSearchTerm ? "No patients found matching your search." : "No patients available."}
@@ -494,56 +424,50 @@ const BookAppointmentForPatient = () => {
               )}
             </div>
           )}
-
-          {/* New Patient Form */}
+          
           {patientSelectionMode === "new" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                 <input
                   type="text"
                   value={newPatientData.name}
                   onChange={(e) => handleNewPatientDataChange('name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                 <input
                   type="email"
                   value={newPatientData.email}
                   onChange={(e) => handleNewPatientDataChange('email', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
                 <input
                   type="tel"
                   value={newPatientData.phone}
                   onChange={(e) => handleNewPatientDataChange('phone', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CNIC (13 digits) *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CNIC (13 digits) *</label>
                 <input
                   type="text"
                   value={newPatientData.cnic}
                   onChange={(e) => handleNewPatientDataChange('cnic', e.target.value)}
-                  placeholder="e.g., 1234567890123"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  placeholder="1234567890123"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   maxLength="13"
                   required
                 />
@@ -551,58 +475,54 @@ const BookAppointmentForPatient = () => {
                   Enter 13 digits without dashes ({newPatientData.cnic.length}/13)
                 </p>
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
                 <input
                   type="date"
                   value={newPatientData.dob}
                   onChange={(e) => handleNewPatientDataChange('dob', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gender
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                 <select
                   value={newPatientData.gender}
                   onChange={(e) => handleNewPatientDataChange('gender', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address Line 1 *
-                </label>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 *</label>
                 <input
                   type="text"
                   value={newPatientData.address.line1}
                   onChange={(e) => handleNewPatientDataChange('address.line1', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address Line 2
-                </label>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
                 <input
                   type="text"
                   value={newPatientData.address.line2}
                   onChange={(e) => handleNewPatientDataChange('address.line2', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
-
+              
               {/* WhatsApp Settings for New Patient */}
-              <div className="md:col-span-2 mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="md:col-span-2 mt-4 p-4 bg-green-50 rounded-xl border border-green-200">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <FaWhatsapp className="text-green-500 text-xl" />
@@ -640,39 +560,33 @@ const BookAppointmentForPatient = () => {
               </div>
             </div>
           )}
-
-          <div className="mt-6">
+          
+          <div className="mt-8">
             <button
               onClick={() => {
                 if (validatePatientSelection()) {
                   setStep(2);
                 }
               }}
-              className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary-dark"
+              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
             >
-              Next: Select Doctor
+              Select Doctor
             </button>
           </div>
         </div>
       )}
-
+      
       {/* Step 2: Doctor Selection */}
       {step === 2 && (
-        <div className="bg-white p-8 rounded-lg border shadow">
-          <h2 className="text-2xl font-semibold mb-4 text-primary">2. Select Doctor</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">2. Select Doctor</h2>
           
-          {/* Selected Patient Summary */}
           {getSelectedPatientData() && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                <span className="text-primary">Patient:</span> {getSelectedPatientData().name}
-              </h4>
-              <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
+            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <h4 className="font-semibold text-blue-900 mb-2">Selected Patient: {getSelectedPatientData().name}</h4>
+              <div className="text-sm text-blue-700 grid grid-cols-2 gap-2">
                 <span>Email: {getSelectedPatientData().email}</span>
                 <span>Phone: {getSelectedPatientData().phone}</span>
-                {getSelectedPatientData().cnic && (
-                  <span>CNIC: {getSelectedPatientData().cnic}</span>
-                )}
                 <span>Age: {calculateAge(getSelectedPatientData().dob)} years</span>
                 <span className="flex items-center gap-1">
                   {getSelectedPatientData().whatsappEnabled ? (
@@ -690,93 +604,77 @@ const BookAppointmentForPatient = () => {
               </div>
             </div>
           )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {doctors.filter(doc => doc.available).map((doctor) => (
               <div
                 key={doctor._id}
                 onClick={() => handleDoctorSelection(doctor)}
-                className="border border-blue-200 rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary"
+                className="border border-gray-200 rounded-2xl p-6 cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all duration-300"
               >
                 <img
-                  className="w-full h-40 object-cover rounded-lg bg-blue-50"
+                  className="w-full h-48 object-cover rounded-xl bg-gray-50 mb-4"
                   src={doctor.image}
                   alt={doctor.name}
                 />
-                <div className="mt-3">
-                  <div className="flex items-center gap-2 text-sm text-green-500 mb-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Available</span>
-                  </div>
-                  <h3 className="font-medium text-gray-900">{doctor.name}</h3>
-                  <p className="text-sm text-gray-600">{doctor.speciality}</p>
-                  <p className="text-sm text-primary font-medium mt-1">
-                    Rs. {doctor.fee}
-                  </p>
-                  {doctor.timings && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {doctor.timings.start} - {doctor.timings.end}
-                    </p>
-                  )}
-                  {doctor.sittingDays && (
-                    <p className="text-xs text-gray-500">
-                      Days: {doctor.sittingDays.join(', ')}
-                    </p>
-                  )}
+                <div className="flex items-center gap-2 text-sm text-green-600 mb-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Available</span>
                 </div>
+                <h3 className="font-semibold text-gray-900 mb-1">{doctor.name}</h3>
+                <p className="text-sm text-gray-600 mb-2">{doctor.speciality}</p>
+                <p className="text-sm text-blue-600 font-semibold">Rs. {doctor.fee}</p>
+                {doctor.timings && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    {doctor.timings.start} - {doctor.timings.end}
+                  </p>
+                )}
               </div>
             ))}
           </div>
-
-          <div className="mt-6 flex gap-4">
+          
+          <div className="mt-8 flex gap-4">
             <button
               onClick={() => setStep(1)}
-              className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
+              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Back
             </button>
           </div>
         </div>
       )}
-
+      
       {/* Step 3: Time Slot Selection */}
       {step === 3 && selectedDoctor && (
-        <div className="bg-white p-8 rounded-lg border shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-primary">3. Select Appointment Time</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">3. Select Appointment Time</h2>
             <button
               onClick={() => setStep(2)}
-              className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Back
             </button>
           </div>
-
+          
           {/* Selected Doctor Info */}
-          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg mb-6 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-6">
             <img
-              className="w-16 h-16 rounded-full object-cover border-2 border-primary"
+              className="w-16 h-16 rounded-xl object-cover border-2 border-blue-600"
               src={selectedDoctor.image}
               alt={selectedDoctor.name}
             />
             <div>
-              <h3 className="font-medium text-gray-900">{selectedDoctor.name}</h3>
+              <h3 className="font-semibold text-gray-900">{selectedDoctor.name}</h3>
               <p className="text-sm text-gray-600">{selectedDoctor.speciality}</p>
-              <p className="text-sm text-primary font-medium">Fee: Rs. {selectedDoctor.fee}</p>
-              {selectedDoctor.whatsappNumber && (
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <FaWhatsapp /> {selectedDoctor.whatsappNumber}
-                </p>
-              )}
+              <p className="text-sm text-blue-600 font-semibold">Fee: Rs. {selectedDoctor.fee}</p>
             </div>
           </div>
-
+          
           {/* Patient Summary */}
-          <div className="p-4 bg-blue-50 rounded-lg mb-6 border border-blue-200 shadow-sm">
-            <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-              <span className="text-primary">Patient:</span> {getSelectedPatientData().name}
-            </h4>
-            <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
+          <div className="p-4 bg-blue-50 rounded-xl mb-6 border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">Patient: {getSelectedPatientData().name}</h4>
+            <div className="text-sm text-blue-700 grid grid-cols-2 gap-2">
               <span>Age: {calculateAge(getSelectedPatientData().dob)} years</span>
               <span>Gender: {getSelectedPatientData().gender}</span>
               <span>Phone: {getSelectedPatientData().phone}</span>
@@ -795,9 +693,127 @@ const BookAppointmentForPatient = () => {
               </span>
             </div>
           </div>
-
+          
+          {/* Month Selection */}
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-900 mb-4">Select Month</h4>
+            <div className="flex items-center gap-4 mb-4">
+              <button
+                onClick={() => {
+                  const newYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+                  const newMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+                  setSelectedYear(newYear);
+                  handleMonthChange(newMonth);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <FaChevronLeft />
+              </button>
+              
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-3 flex-1">
+                {months.map((month, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleMonthChange(index)}
+                    className={`py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
+                      selectedMonth === index
+                        ? "bg-blue-600 text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {month}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={() => {
+                  const newYear = selectedMonth === 11 ? selectedYear + 1 : selectedYear;
+                  const newMonth = selectedMonth === 11 ? 0 : selectedMonth + 1;
+                  setSelectedYear(newYear);
+                  handleMonthChange(newMonth);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <FaChevronRight />
+              </button>
+            </div>
+            <p className="text-center text-gray-600 font-semibold">{months[selectedMonth]} {selectedYear}</p>
+          </div>
+          
+          {/* Date Selection */}
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-900 mb-4">Select Date</h4>
+            {slotsLoading ? (
+              <div className="flex items-center gap-2 text-blue-600">
+                <FaSpinner className="animate-spin" /> Loading available dates...
+              </div>
+            ) : docSlots.length > 0 ? (
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {docSlots.map((item, index) => (
+                  <button
+                    key={index}
+                    className={`flex flex-col items-center justify-center min-w-[90px] px-6 py-5 rounded-xl border-2 transition-all duration-200 shadow-md
+                      ${slotIndex === index
+                        ? "bg-blue-600 text-white border-blue-600 scale-105 font-bold"
+                        : "bg-white text-gray-800 border-gray-200 hover:border-blue-500 hover:bg-blue-50"
+                      }`}
+                    onClick={() => {
+                      setSlotIndex(index);
+                      setSlotTime("");
+                    }}
+                  >
+                    {item.length > 0 && (
+                      <>
+                        <span className="uppercase text-sm font-semibold tracking-wide mb-2">
+                          {daysOfWeek[item[0].datetime.getDay()]}
+                        </span>
+                        <span className="text-3xl font-extrabold leading-none mb-1">
+                          {item[0].datetime.getDate()}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {item[0].datetime.toLocaleDateString('en-US', { month: 'short' })}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-red-500 py-4">No available dates for this doctor.</div>
+            )}
+          </div>
+          
+          {/* Time Selection */}
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-900 mb-4">Select Time</h4>
+            {slotsLoading ? (
+              <div className="flex items-center gap-2 text-blue-600">
+                <FaSpinner className="animate-spin" /> Loading time slots...
+              </div>
+            ) : docSlots.length > 0 && docSlots[slotIndex]?.length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {docSlots[slotIndex].map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSlotTime(item.time)}
+                    className={`px-4 py-2 rounded-lg border transition-all shadow-sm ${
+                      item.time === slotTime
+                        ? "bg-blue-600 text-white border-blue-600 scale-105"
+                        : "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
+                    }`}
+                  >
+                    {item.time.toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-red-500 py-4">No available time slots for this date.</div>
+            )}
+          </div>
+          
           {/* Discount Section */}
-          <div className="p-4 bg-yellow-50 rounded-lg mb-6 border border-yellow-200 shadow-sm">
+          <div className="p-4 bg-yellow-50 rounded-xl mb-6 border border-yellow-200">
             <h4 className="font-medium text-gray-900 mb-3">Apply Discount (Optional)</h4>
             <div className="flex items-center gap-4">
               <div className="flex-1">
@@ -831,89 +847,11 @@ const BookAppointmentForPatient = () => {
               </div>
             </div>
           </div>
-
-{/* Date Selection */}
-<div className="mb-4">
-  <p className="font-medium text-gray-700 mb-3">Select Date</p>
-  {slotsLoading ? (
-    <div className="flex items-center gap-2 text-primary">
-      <FaSpinner className="animate-spin" /> Loading available dates...
-    </div>
-  ) : docSlots.length > 0 ? (
-    <div className="flex gap-4 overflow-x-auto pb-2">
-      {docSlots.map((item, index) => (
-        <button
-          key={index}
-          className={`flex flex-col items-center justify-center min-w-[90px] px-6 py-5 rounded-xl border-2 transition-all duration-200 shadow-md
-            ${slotIndex === index
-              ? "bg-primary text-white border-primary scale-105 font-bold"
-              : "bg-white text-gray-800 border-gray-200 hover:border-primary hover:bg-blue-50"
-            }`}
-          style={{
-            outline: slotIndex === index ? "2px solid #6366f1" : "none",
-            outlineOffset: "2px",
-            cursor: "pointer"
-          }}
-          onClick={() => {
-            setSlotIndex(index);
-            setSlotTime("");
-          }}
-          title={`Select ${item[0]?.datetime.toLocaleDateString()}`}
-        >
-          {item.length > 0 && (
-            <>
-              <span className="uppercase text-sm font-semibold tracking-wide mb-2">
-                {daysOfWeek[item[0].datetime.getDay()]}
-              </span>
-              <span className="text-3xl font-extrabold leading-none mb-1">
-                {item[0].datetime.getDate()}
-              </span>
-              <span className="text-sm font-medium">
-                {item[0].datetime.toLocaleDateString('en-US', { month: 'short' })}
-              </span>
-            </>
-          )}
-        </button>
-      ))}
-    </div>
-  ) : (
-    <div className="text-red-500 py-4">No available dates for this doctor.</div>
-  )}
-</div>
-
-          {/* Time Selection */}
-          <div className="mb-6">
-            <p className="font-medium text-gray-700 mb-3">Select Time</p>
-            {slotsLoading ? (
-              <div className="flex items-center gap-2 text-primary">
-                <FaSpinner className="animate-spin" /> Loading time slots...
-              </div>
-            ) : docSlots.length > 0 && docSlots[slotIndex]?.length > 0 ? (
-              <div className="flex flex-wrap gap-3">
-                {docSlots[slotIndex].map((item, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSlotTime(item.time)}
-                    className={`px-4 py-2 rounded-lg border transition-all shadow-sm ${
-                      item.time === slotTime
-                        ? "bg-primary text-white border-primary scale-105"
-                        : "border-gray-300 hover:border-primary hover:bg-blue-50"
-                    }`}
-                    title={`Book at ${item.time}`}
-                  >
-                    {item.time.toLowerCase()}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-red-500 py-4">No available time slots for this date.</div>
-            )}
-          </div>
-
+          
           {/* Booking Summary & Confirm Button */}
           {slotTime && (
             <div className="border-t pt-6">
-              <div className="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200 shadow-sm">
+              <div className="bg-yellow-50 p-4 rounded-xl mb-4 border border-yellow-200">
                 <h4 className="font-medium text-gray-900 mb-2">Booking Summary</h4>
                 <div className="text-sm space-y-1">
                   <p><strong>Patient:</strong> {getSelectedPatientData().name}</p>
@@ -945,11 +883,11 @@ const BookAppointmentForPatient = () => {
                   )}
                 </div>
               </div>
-
+              
               <button
                 onClick={bookAppointment}
                 disabled={isBooking}
-                className="w-full bg-primary text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
               >
                 {isBooking ? (
                   <>

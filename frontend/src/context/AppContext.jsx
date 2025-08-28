@@ -10,153 +10,172 @@ const AppContextProvider = (props) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
   // Helper function to check if doctor is currently available
-  const isDoctorAvailable = (doctor) => {
-    if (!doctor.available) return false; // Basic availability flag
-    
-    const now = new Date();
-    const currentDay = now.toLocaleDateString('en-US', { weekday: 'lowercase' });
-    const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
-    
-    // Check if doctor has sitting days defined
-    if (doctor.sittingDays && doctor.sittingDays.length > 0) {
-      if (!doctor.sittingDays.includes(currentDay)) {
-        return false; // Doctor doesn't work today
-      }
+const isDoctorAvailable = (doctor) => {
+  if (!doctor.available) return false; // Basic availability flag
+  
+  const now = new Date();
+  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(); // Fixed line
+  const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+  
+  // Check if doctor has sitting days defined
+  if (doctor.sittingDays && doctor.sittingDays.length > 0) {
+    if (!doctor.sittingDays.includes(currentDay)) {
+      return false; // Doctor doesn't work today
     }
+  }
+  
+  // Check if doctor has working hours defined
+  if (doctor.timings) {
+    const [startHour, startMin] = doctor.timings.start.split(':').map(Number);
+    const [endHour, endMin] = doctor.timings.end.split(':').map(Number);
     
-    // Check if doctor has working hours defined
-    if (doctor.timings) {
-      const [startHour, startMin] = doctor.timings.start.split(':').map(Number);
-      const [endHour, endMin] = doctor.timings.end.split(':').map(Number);
-      
-      const startTime = startHour * 60 + startMin;
-      const endTime = endHour * 60 + endMin;
-      
-      if (currentTime < startTime || currentTime > endTime) {
-        return false; // Outside working hours
-      }
+    const startTime = startHour * 60 + startMin;
+    const endTime = endHour * 60 + endMin;
+    
+    if (currentTime < startTime || currentTime > endTime) {
+      return false; // Outside working hours
     }
+  }
+  
+  // Check if doctor is on approved leave
+  if (doctor.leaveRequests && doctor.leaveRequests.length > 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    // Check if doctor is on approved leave
-    if (doctor.leaveRequests && doctor.leaveRequests.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const isOnLeave = doctor.leaveRequests.some(leave => {
+      if (leave.status !== 'approved') return false;
       
-      const isOnLeave = doctor.leaveRequests.some(leave => {
-        if (leave.status !== 'approved') return false;
-        
-        const fromDate = new Date(leave.fromDate);
-        const toDate = new Date(leave.toDate);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate.setHours(23, 59, 59, 999);
-        
-        return today >= fromDate && today <= toDate;
+      const fromDate = new Date(leave.fromDate);
+      const toDate = new Date(leave.toDate);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate.setHours(23, 59, 59, 999);
+      
+      return today >= fromDate && today <= toDate;
+    });
+    
+    if (isOnLeave) {
+      return false; // Doctor is on leave
+    }
+  }
+  
+  return true; // Doctor is available
+};
+const getDoctorsData = async () => {
+  try {
+    console.log("Fetching doctors from:", backendUrl + "/api/doctor/list");
+    const { data } = await axios.get(backendUrl + "/api/doctor/list");
+    console.log("API response:", data);
+    
+    if (data.success) {
+      console.log("Processing", data.doctors.length, "doctors");
+      // Process doctors to add real-time availability status
+      const processedDoctors = data.doctors.map(doctor => {
+        try {
+          console.log("Processing doctor:", doctor.name);
+          return {
+            ...doctor,
+            isCurrentlyAvailable: isDoctorAvailable(doctor)
+          };
+        } catch (error) {
+          console.error("Error processing doctor", doctor.name, ":", error);
+          return {
+            ...doctor,
+            isCurrentlyAvailable: false
+          };
+        }
       });
-      
-      if (isOnLeave) {
-        return false; // Doctor is on leave
-      }
+      console.log("Setting doctors state with", processedDoctors.length, "doctors");
+      setDoctors(processedDoctors);
+    } else {
+      console.error("Backend error:", data.message);
+      toast.error(data.message);
     }
-    
-    return true; // Doctor is available
-  };
-
-  const getDoctorsData = async () => {
-    try {
-      const { data } = await axios.get(backendUrl + "/api/doctor/list");
-      if (data.success) {
-        // Process doctors to add real-time availability status
-        const processedDoctors = data.doctors.map(doctor => ({
-          ...doctor,
-          isCurrentlyAvailable: isDoctorAvailable(doctor)
-        }));
-        setDoctors(processedDoctors);
-      } else {
-        console.error(data.message);
-        toast.error(data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load doctors");
+  } catch (error) {
+    console.error("Error fetching doctors:", error);
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
     }
-  };
+    toast.error("Failed to load doctors");
+  }
+};
 
   // Function to get doctor's availability status with reason
-  const getDoctorAvailabilityStatus = (doctor) => {
-    if (!doctor.available) {
-      return { available: false, reason: "Currently unavailable" };
+const getDoctorAvailabilityStatus = (doctor) => {
+  if (!doctor.available) {
+    return { available: false, reason: "Currently unavailable" };
+  }
+  
+  const now = new Date();
+  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(); // Fixed line
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  
+  // Check sitting days
+  if (doctor.sittingDays && doctor.sittingDays.length > 0) {
+    if (!doctor.sittingDays.includes(currentDay)) {
+      const nextWorkingDay = getNextWorkingDay(doctor.sittingDays);
+      return { 
+        available: false, 
+        reason: `Not available on ${currentDay}s`,
+        nextAvailable: nextWorkingDay
+      };
+    }
+  }
+  
+  // Check working hours
+  if (doctor.timings) {
+    const [startHour, startMin] = doctor.timings.start.split(':').map(Number);
+    const [endHour, endMin] = doctor.timings.end.split(':').map(Number);
+    
+    const startTime = startHour * 60 + startMin;
+    const endTime = endHour * 60 + endMin;
+    
+    if (currentTime < startTime) {
+      return { 
+        available: false, 
+        reason: `Available from ${doctor.timings.start}`,
+        nextAvailable: `Today at ${doctor.timings.start}`
+      };
     }
     
-    const now = new Date();
-    const currentDay = now.toLocaleDateString('en-US', { weekday: 'lowercase' });
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    
-    // Check sitting days
-    if (doctor.sittingDays && doctor.sittingDays.length > 0) {
-      if (!doctor.sittingDays.includes(currentDay)) {
-        const nextWorkingDay = getNextWorkingDay(doctor.sittingDays);
-        return { 
-          available: false, 
-          reason: `Not available on ${currentDay}s`,
-          nextAvailable: nextWorkingDay
-        };
-      }
+    if (currentTime > endTime) {
+      return { 
+        available: false, 
+        reason: `Clinic closed at ${doctor.timings.end}`,
+        nextAvailable: "Tomorrow"
+      };
     }
+  }
+  
+  // Check leave status
+  if (doctor.leaveRequests && doctor.leaveRequests.length > 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    // Check working hours
-    if (doctor.timings) {
-      const [startHour, startMin] = doctor.timings.start.split(':').map(Number);
-      const [endHour, endMin] = doctor.timings.end.split(':').map(Number);
+    const currentLeave = doctor.leaveRequests.find(leave => {
+      if (leave.status !== 'approved') return false;
       
-      const startTime = startHour * 60 + startMin;
-      const endTime = endHour * 60 + endMin;
+      const fromDate = new Date(leave.fromDate);
+      const toDate = new Date(leave.toDate);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate.setHours(23, 59, 59, 999);
       
-      if (currentTime < startTime) {
-        return { 
-          available: false, 
-          reason: `Available from ${doctor.timings.start}`,
-          nextAvailable: `Today at ${doctor.timings.start}`
-        };
-      }
-      
-      if (currentTime > endTime) {
-        return { 
-          available: false, 
-          reason: `Clinic closed at ${doctor.timings.end}`,
-          nextAvailable: "Tomorrow"
-        };
-      }
+      return today >= fromDate && today <= toDate;
+    });
+    
+    if (currentLeave) {
+      const returnDate = new Date(currentLeave.toDate);
+      returnDate.setDate(returnDate.getDate() + 1);
+      return { 
+        available: false, 
+        reason: "On leave",
+        nextAvailable: returnDate.toLocaleDateString()
+      };
     }
-    
-    // Check leave status
-    if (doctor.leaveRequests && doctor.leaveRequests.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const currentLeave = doctor.leaveRequests.find(leave => {
-        if (leave.status !== 'approved') return false;
-        
-        const fromDate = new Date(leave.fromDate);
-        const toDate = new Date(leave.toDate);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate.setHours(23, 59, 59, 999);
-        
-        return today >= fromDate && today <= toDate;
-      });
-      
-      if (currentLeave) {
-        const returnDate = new Date(currentLeave.toDate);
-        returnDate.setDate(returnDate.getDate() + 1);
-        return { 
-          available: false, 
-          reason: "On leave",
-          nextAvailable: returnDate.toLocaleDateString()
-        };
-      }
-    }
-    
-    return { available: true, reason: "Available now" };
-  };
+  }
+  
+  return { available: true, reason: "Available now" };
+};
 
   // Helper function to get next working day
   const getNextWorkingDay = (sittingDays) => {

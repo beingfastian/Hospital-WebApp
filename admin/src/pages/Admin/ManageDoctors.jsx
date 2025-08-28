@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
-import { FaEdit, FaTrash, FaPlus, FaSearch } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaToggleOn, FaToggleOff } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -12,14 +12,11 @@ const ManageDoctors = () => {
   const [filterAvailability, setFilterAvailability] = useState("all");
   const [editingDoctor, setEditingDoctor] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const specialities = [
-    "General physician",
-    "Gynecologist", 
-    "Dermatologist",
-    "Pediatricians",
-    "Neurologist",
-    "Gastroenterologist"
+    "General physician", "Gynecologist", "Dermatologist",
+    "Pediatricians", "Neurologist", "Gastroenterologist"
   ];
 
   useEffect(() => {
@@ -35,7 +32,6 @@ const ManageDoctors = () => {
   const filterDoctors = () => {
     let filtered = doctors;
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(doctor => 
         doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,12 +40,10 @@ const ManageDoctors = () => {
       );
     }
 
-    // Speciality filter
     if (filterSpeciality !== "all") {
       filtered = filtered.filter(doctor => doctor.speciality === filterSpeciality);
     }
 
-    // Availability filter
     if (filterAvailability !== "all") {
       const isAvailable = filterAvailability === "available";
       filtered = filtered.filter(doctor => doctor.available === isAvailable);
@@ -68,6 +62,9 @@ const ManageDoctors = () => {
   };
 
   const updateDoctor = async () => {
+    if (!editingDoctor) return;
+    
+    setLoading(true);
     try {
       const updateData = {
         name: editingDoctor.name,
@@ -101,6 +98,8 @@ const ManageDoctors = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to update doctor");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,129 +125,218 @@ const ManageDoctors = () => {
   };
 
   return (
-    <div className="m-5 max-w-7xl">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-medium">Manage Doctors</h1>
-        <button 
-          onClick={() => window.location.href = '/add-doctor'}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-full hover:bg-primary-dark"
-        >
-          <FaPlus /> Add New Doctor
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border mb-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search doctors..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md outline-primary"
-            />
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Manage Doctors</h1>
+            <p className="text-gray-600 mt-1">View, edit, and manage all doctors in the system</p>
           </div>
-          <select
-            value={filterSpeciality}
-            onChange={(e) => setFilterSpeciality(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md outline-primary"
+          <button 
+            onClick={() => window.location.href = '/add-doctor'}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <option value="all">All Specialities</option>
-            {specialities.map(spec => (
-              <option key={spec} value={spec}>{spec}</option>
-            ))}
-          </select>
-          <select
-            value={filterAvailability}
-            onChange={(e) => setFilterAvailability(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md outline-primary"
-          >
-            <option value="all">All Status</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Unavailable</option>
-          </select>
-          <div className="text-sm text-gray-600 flex items-center">
-            Total: {filteredDoctors.length} doctors
+            <FaPlus /> Add New Doctor
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg border border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search doctors..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <select
+              value={filterSpeciality}
+              onChange={(e) => setFilterSpeciality(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="all">All Specialities</option>
+              {specialities.map(spec => (
+                <option key={spec} value={spec}>{spec}</option>
+              ))}
+            </select>
+            <select
+              value={filterAvailability}
+              onChange={(e) => setFilterAvailability(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            <div className="text-sm text-gray-600 flex items-center justify-end">
+              Total: {filteredDoctors.length} doctors
+            </div>
           </div>
         </div>
       </div>
 
       {/* Doctors Table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Doctor</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Speciality</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Experience</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Fee</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDoctors.map((doctor, index) => (
-                <tr key={doctor._id} className="border-t hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={doctor.image}
-                        alt={doctor.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-medium text-gray-900">{doctor.name}</p>
-                        <p className="text-sm text-gray-500">{doctor.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-gray-700">{doctor.speciality}</td>
-                  <td className="py-3 px-4 text-gray-700">{doctor.experience}</td>
-                  <td className="py-3 px-4 text-gray-700">${doctor.fee}</td>
-                  <td className="py-3 px-4">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={doctor.available}
-                        onChange={() => changeAvailability(doctor._id)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEditDoctor(doctor)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
-                        title="Edit Doctor"
-                      >
-                        <FaEdit />
-                      </button>
-                      <button
-                        onClick={() => deleteDoctor(doctor._id, doctor.name)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                        title="Delete Doctor"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </td>
+      <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="max-h-96 overflow-y-auto">
+          {/* Desktop View */}
+          <div className="hidden lg:block">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+                <tr>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Doctor</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Speciality</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Experience</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Fee</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Status</th>
+                  <th className="text-left py-4 px-6 font-medium text-gray-700">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredDoctors.map((doctor) => (
+                  <tr key={doctor._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={doctor.image}
+                          alt={doctor.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-900">{doctor.name}</p>
+                          <p className="text-sm text-gray-500">{doctor.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-gray-700">{doctor.speciality}</td>
+                    <td className="py-4 px-6 text-gray-700">{doctor.experience}</td>
+                    <td className="py-4 px-6 text-gray-700">Rs. {doctor.fee}</td>
+                    <td className="py-4 px-6">
+                      <button
+                        onClick={() => changeAvailability(doctor._id)}
+                        className="flex items-center gap-2"
+                      >
+                        {doctor.available ? (
+                          <FaToggleOn className="text-green-500 text-xl" />
+                        ) : (
+                          <FaToggleOff className="text-gray-400 text-xl" />
+                        )}
+                        <span className={`text-sm ${doctor.available ? 'text-green-600' : 'text-gray-500'}`}>
+                          {doctor.available ? 'Available' : 'Unavailable'}
+                        </span>
+                      </button>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditDoctor(doctor)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Doctor"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => deleteDoctor(doctor._id, doctor.name)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Doctor"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile View */}
+          <div className="lg:hidden">
+            {filteredDoctors.map((doctor) => (
+              <div key={doctor._id} className="p-4 border-b border-gray-50 last:border-b-0">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={doctor.image}
+                      alt={doctor.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">{doctor.name}</p>
+                      <p className="text-sm text-gray-500">{doctor.speciality}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => changeAvailability(doctor._id)}
+                    className="flex items-center gap-1"
+                  >
+                    {doctor.available ? (
+                      <FaToggleOn className="text-green-500" />
+                    ) : (
+                      <FaToggleOff className="text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                  <div>
+                    <p className="text-gray-500">Experience</p>
+                    <p className="font-medium">{doctor.experience}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Fee</p>
+                    <p className="font-medium">Rs. {doctor.fee}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm ${doctor.available ? 'text-green-600' : 'text-gray-500'}`}>
+                    {doctor.available ? 'Available' : 'Unavailable'}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditDoctor(doctor)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      onClick={() => deleteDoctor(doctor._id, doctor.name)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filteredDoctors.length === 0 && (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaSearch className="text-gray-400 text-xl" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No doctors found</h3>
+              <p className="text-gray-500">
+                {searchTerm || filterSpeciality !== "all" || filterAvailability !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "No doctors have been added yet"
+                }
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Edit Modal */}
       {showEditModal && editingDoctor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-medium mb-4">Edit Doctor</h2>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Edit Doctor</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -257,7 +345,7 @@ const ManageDoctors = () => {
                   type="text"
                   value={editingDoctor.name}
                   onChange={(e) => setEditingDoctor({...editingDoctor, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div>
@@ -266,7 +354,7 @@ const ManageDoctors = () => {
                   type="email"
                   value={editingDoctor.email}
                   onChange={(e) => setEditingDoctor({...editingDoctor, email: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div>
@@ -274,7 +362,7 @@ const ManageDoctors = () => {
                 <select
                   value={editingDoctor.speciality}
                   onChange={(e) => setEditingDoctor({...editingDoctor, speciality: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   {specialities.map(spec => (
                     <option key={spec} value={spec}>{spec}</option>
@@ -286,20 +374,22 @@ const ManageDoctors = () => {
                 <select
                   value={editingDoctor.experience}
                   onChange={(e) => setEditingDoctor({...editingDoctor, experience: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  {[1,2,3,4,5,6,7,8,9,10].map(year => (
-                    <option key={year} value={`${year} Year`}>{year} Year</option>
+                  {[...Array(15)].map((_, i) => (
+                    <option key={i + 1} value={`${i + 1} Year${i > 0 ? 's' : ''}`}>
+                      {i + 1} Year{i > 0 ? 's' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fee ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fee (Rs.)</label>
                 <input
                   type="number"
                   value={editingDoctor.fee}
                   onChange={(e) => setEditingDoctor({...editingDoctor, fee: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div>
@@ -308,25 +398,7 @@ const ManageDoctors = () => {
                   type="text"
                   value={editingDoctor.degree}
                   onChange={(e) => setEditingDoctor({...editingDoctor, degree: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
-                <input
-                  type="text"
-                  value={editingDoctor.address1}
-                  onChange={(e) => setEditingDoctor({...editingDoctor, address1: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
-                <input
-                  type="text"
-                  value={editingDoctor.address2}
-                  onChange={(e) => setEditingDoctor({...editingDoctor, address2: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div className="md:col-span-2">
@@ -335,7 +407,7 @@ const ManageDoctors = () => {
                   value={editingDoctor.about}
                   onChange={(e) => setEditingDoctor({...editingDoctor, about: e.target.value})}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 />
               </div>
             </div>
@@ -346,15 +418,16 @@ const ManageDoctors = () => {
                   setShowEditModal(false);
                   setEditingDoctor(null);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={updateDoctor}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                Update Doctor
+                {loading ? "Updating..." : "Update Doctor"}
               </button>
             </div>
           </div>

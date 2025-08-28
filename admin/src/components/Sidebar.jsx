@@ -1,189 +1,120 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { AdminContext } from "../context/AdminContext";
 import { NavLink } from "react-router-dom";
 import { assets } from "../assets/assets.js";
 import { DoctorContext } from "../context/DoctorContext.jsx";
-import { FaCog, FaUserPlus, FaUsers, FaUserMd, FaEdit, FaCalendarCheck } from "react-icons/fa";
+import { 
+  FaCog, 
+  FaUserPlus, 
+  FaUsers, 
+  FaUserMd, 
+  FaCalendarCheck, 
+  FaChartBar,
+  FaStethoscope,
+  FaUserInjured,
+  FaCalendarAlt,
+  FaBars
+} from "react-icons/fa";
 
 const Sidebar = () => {
   const { aToken } = useContext(AdminContext);
   const { dToken } = useContext(DoctorContext);
-  
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Simplified navigation items for Admin
+  const adminNavItems = [
+    { path: "/", icon: <FaChartBar />, label: "Dashboard" },
+    { path: "/all-appointments", icon: <FaCalendarAlt />, label: "Appointments" },
+    { path: "/book-appointment", icon: <FaUserPlus />, label: "Book Appointment" },
+    { path: "/doctors", icon: <FaUserMd />, label: "Doctors" },
+    { path: "/add-doctor", icon: <FaStethoscope />, label: "Add Doctor" },
+    { path: "/patients", icon: <FaUsers />, label: "Patients" },
+    { path: "/add-patient", icon: <FaUserInjured />, label: "Add Patient" },
+    { path: "/leave-management", icon: <FaCalendarCheck />, label: "Leave Management" },
+    { path: "/settings", icon: <FaCog />, label: "Settings" }
+  ];
+
+  // Simplified navigation items for Doctor
+  const doctorNavItems = [
+    { path: "/doctor/", icon: <FaChartBar />, label: "Dashboard", end: true },
+    { path: "/doctor/appointments", icon: <FaCalendarAlt />, label: "Appointments" },
+    { path: "/doctor/profile", icon: <FaUserMd />, label: "Profile" },
+    { path: "/doctor/leave-requests", icon: <FaCalendarCheck />, label: "Leave Requests" }
+  ];
+
+  const renderNavItem = (item, index) => (
+    <NavLink
+      key={index}
+      end={item.end}
+      className={({ isActive }) =>
+        `flex items-center gap-3 py-2.5 px-4 mx-2 rounded-lg transition-colors duration-200 ${
+          isActive
+            ? "bg-blue-500 text-white shadow-sm"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+        }`
+      }
+      to={item.path}
+    >
+      <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+        {item.icon}
+      </div>
+      {!isCollapsed && (
+        <span className="text-sm font-medium truncate">{item.label}</span>
+      )}
+    </NavLink>
+  );
+
   return (
-    <div className="min-h-screen bg-white border-r">
-      {aToken && (
-        <ul className="text-[#515151] mt-5">
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/"}
-          >
-            <img src={assets.home_icon} alt="" />
-            <p className="hidden md:block">Dashboard</p>
-          </NavLink>
-          
-          {/* Appointments Section */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/all-appointments"}
-          >
-            <img src={assets.appointment_icon} alt="" />
-            <p className="hidden md:block">View Appointments</p>
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/book-appointment"}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <FaUserPlus className="text-xl text-gray-600" />
+    <div className={`flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-200 ${
+      isCollapsed ? "w-16" : "w-64"
+    }`}>
+      
+      {/* Header - Fixed height */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 h-16 flex-shrink-0">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm ${
+              aToken ? "bg-blue-500" : "bg-indigo-500"
+            }`}>
+              {aToken ? 'A' : 'D'}
             </div>
-            <p className="hidden md:block">Book for Patient</p>
-          </NavLink>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                {aToken ? "Admin" : "Doctor"}
+              </h2>
+            </div>
+          </div>
+        )}
+        
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+        >
+          <FaBars className="w-4 h-4" />
+        </button>
+      </div>
 
-          {/* Doctors Management Section */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/doctors"}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <FaUserMd className="text-xl text-gray-600" />
-            </div>
-            <p className="hidden md:block">Manage Doctors</p>
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/add-doctor"}
-          >
-            <img src={assets.add_icon} alt="" />
-            <p className="hidden md:block">Add Doctor</p>
-          </NavLink>
+      {/* Navigation - Scrollable area */}
+      <div className="flex-1 overflow-y-auto py-4">
+        <nav className="space-y-1">
+          {aToken && adminNavItems.map((item, index) => renderNavItem(item, index))}
+          {dToken && doctorNavItems.map((item, index) => renderNavItem(item, index))}
+        </nav>
+      </div>
 
-          {/* Patients Management Section */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/patients"}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <FaUsers className="text-xl text-gray-600" />
-            </div>
-            <p className="hidden md:block">Manage Patients</p>
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/add-patient"}
-          >
-            <img src={assets.people_icon} alt="" />
-            <p className="hidden md:block">Add Patient</p>
-          </NavLink>
-
-          {/* Leave Management Section - NEW */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/leave-management"}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <FaCalendarCheck className="text-xl text-gray-600" />
-            </div>
-            <p className="hidden md:block">Leave Management</p>
-          </NavLink>
-
-          {/* Settings */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/settings"}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <FaCog className="text-xl text-gray-600" />
-            </div>
-            <p className="hidden md:block">Settings</p>
-          </NavLink>
-        </ul>
-      )}
-      {dToken && (
-        <ul className="text-[#515151] mt-5">
-          <NavLink
-            end
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/doctor/"}
-          >
-            <img src={assets.home_icon} alt="" />
-            <p className="hidden md:block">Dashboard</p>
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/doctor/appointments"}
-          >
-            <img src={assets.appointment_icon} alt="" />
-            <p className="hidden md:block">Manage Appointments</p>
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/doctor/profile"}
-          >
-            <img src={assets.people_icon} alt="" />
-            <p className="hidden md:block">Profile</p>
-          </NavLink>
-          {/* Add Leave Requests link for doctor */}
-          <NavLink
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
-                isActive ? "bg-[#F2F3FF] border-r-4 border-primary " : ""
-              }`
-            }
-            to={"/doctor/leave-requests"}
-          >
-            <img src={assets.appointment_icon} alt="" />
-            <p className="hidden md:block">Leave Requests</p>
-          </NavLink>
-        </ul>
-      )}
+      {/* Footer - Fixed height */}
+      <div className="border-t border-gray-100 p-4 h-16 flex-shrink-0">
+        {!isCollapsed ? (
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span className="text-xs text-gray-500">System Online</span>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

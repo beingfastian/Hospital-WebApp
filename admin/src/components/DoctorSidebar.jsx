@@ -1,289 +1,163 @@
 import React, { useContext, useState } from "react";
-import { AdminContext } from "../../context/AdminContext.jsx";
-import { toast } from "react-toastify";
-import axios from "axios";
-import { FaWhatsapp } from "react-icons/fa";
-import { ClipLoader } from "react-spinners";
-import { assets } from "../../assets/assets.js";
-import { Link } from "react-router-dom";
+import { DoctorContext } from "../context/DoctorContext";
+import { NavLink } from "react-router-dom";
+import { assets } from "../assets/assets.js";
+import { 
+  FaChartBar,
+  FaCalendarAlt,
+  FaUserMd,
+  FaCalendarCheck,
+  FaBars,
+  FaStethoscope
+} from "react-icons/fa";
 
-const AddPatient = () => {
-  const [patientImage, setPatientImage] = useState(false);
-  const [name, setName] = useState("");
-  const [cnic, setCnic] = useState(""); // Changed from password to CNIC
-  const [phone, setPhone] = useState("");
-  const [dob, setDob] = useState("");
-  const [gender, setGender] = useState("Male");
-  const [address1, setAddress1] = useState("");
-  const [address2, setAddress2] = useState("");
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
-  const [whatsappNumber, setWhatsappNumber] = useState("");
-  const { backendUrl, aToken } = useContext(AdminContext);
-  const [loading, setLoading] = useState(false);
+const DoctorSidebar = () => {
+  const { dToken } = useContext(DoctorContext);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // CNIC validation function
-  const validateCNIC = (cnicValue) => {
-    // Remove any dashes and spaces
-    const cleanCNIC = cnicValue.replace(/[-\s]/g, '');
-    
-    // Check if it's exactly 13 digits
-    if (!/^\d{13}$/.test(cleanCNIC)) {
-      return false;
+  // Navigation items for Doctor based on your existing structure
+  const doctorNavItems = [
+    { 
+      path: "/doctor/", 
+      icon: assets.home_icon, 
+      label: "Dashboard",
+      end: true 
+    },
+    { 
+      path: "/doctor/appointments", 
+      icon: assets.appointment_icon, 
+      label: "Manage Appointments" 
+    },
+    { 
+      path: "/doctor/profile", 
+      icon: assets.people_icon, 
+      label: "Profile" 
+    },
+    { 
+      path: "/doctor/leave-requests", 
+      icon: assets.appointment_icon, 
+      label: "Leave Requests" 
     }
-    
-    return true;
-  };
+  ];
 
-  // Handle CNIC input change
-  const handleCnicChange = (e) => {
-    const value = e.target.value;
-    // Remove any non-digit characters and limit to 13 digits
-    const cleanValue = value.replace(/\D/g, '').slice(0, 13);
-    setCnic(cleanValue);
-  };
-
-  const onSubmitHandler = async (e) => {
-    e.preventDefault();
-    try {
-      if (!patientImage) {
-        return toast.error("Patient image not selected");
+  const renderNavItem = (item, index) => (
+    <NavLink
+      key={index}
+      end={item.end}
+      className={({ isActive }) =>
+        `flex items-center gap-3 py-2.5 px-4 mx-2 rounded-lg transition-colors duration-200 ${
+          isActive
+            ? "bg-indigo-500 text-white shadow-sm"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+        }`
       }
-      
-      // Validation
-      if (!name || !cnic || !phone || !dob || !address1) {
-        return toast.error("Please fill all required fields");
-      }
+      to={item.path}
+    >
+      <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+        {typeof item.icon === 'string' ? (
+          <img src={item.icon} alt="" className="w-5 h-5" />
+        ) : (
+          item.icon
+        )}
+      </div>
+      {!isCollapsed && (
+        <span className="text-sm font-medium truncate">{item.label}</span>
+      )}
+    </NavLink>
+  );
 
-      // Validate CNIC
-      if (!validateCNIC(cnic)) {
-        return toast.error("CNIC must be exactly 13 digits without dashes");
-        return;
-      }
-
-      if (whatsappEnabled && !whatsappNumber) {
-        return toast.error("Please enter WhatsApp number when WhatsApp is enabled");
-      }
-
-      setLoading(true);
-      const formData = new FormData();
-      formData.append("image", patientImage);
-      formData.append("name", name);
-      formData.append("cnic", cnic); // Send CNIC instead of password
-      formData.append("phone", phone);
-      formData.append("dob", dob);
-      formData.append("gender", gender);
-      formData.append("address", JSON.stringify({ line1: address1, line2: address2 }));
-      formData.append("whatsappEnabled", whatsappEnabled);
-      formData.append("whatsappNumber", whatsappNumber);
-
-      const { data } = await axios.post(
-        backendUrl + "/api/admin/add-patient",
-        formData,
-        {
-          headers: {
-            aToken,
-          },
-        }
-      );
-      
-      if (data.success) {
-        toast.success(data.message);
-        // Reset form
-        setName("");
-        setCnic("");
-        setPhone("");
-        setDob("");
-        setGender("Male");
-        setAddress1("");
-        setAddress2("");
-        setWhatsappEnabled(false);
-        setWhatsappNumber("");
-        setPatientImage(false);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Only render if doctor is authenticated
+  if (!dToken) return null;
 
   return (
-    <form className="m-5 w-full" onSubmit={(e) => onSubmitHandler(e)}>
-      <p className="mb-3 text-xl font-medium">Add Patient</p>
-      <div className="bg-white px-8 py-8 border rounded w-full max-w-4xl max-h-[80vh] overflow-y-scroll">
-        <div className="flex items-center gap-4 mb-8 text-gray-500">
-          <label htmlFor="patientImage">
-            <img
-              src={
-                patientImage ? URL.createObjectURL(patientImage) : assets.upload_area
-              }
-              alt=""
-              className="w-16 bg-gray-100 rounded-full cursor-pointer"
-            />
-          </label>
-          <input
-            onChange={(e) => setPatientImage(e.target.files[0])}
-            type="file"
-            id="patientImage"
-            className="hidden"
-          />
-          <p>
-            Upload Patient <br />
-            Picture
-          </p>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row items-start gap-10 text-gray-600">
-          <div className="w-full lg:flex-1 flex flex-col gap-4">
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Patient Name *</p>
-              <input
-                className="border rounded px-3 py-2 outline-primary"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full Name"
-                required
-              />
+    <div className={`flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-200 ${
+      isCollapsed ? "w-16" : "w-64"
+    }`}>
+      
+      {/* Header - Fixed height */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 h-16 flex-shrink-0">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white text-sm">
+              <FaStethoscope className="w-4 h-4" />
             </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>CNIC (13 digits) *</p>
-              <input
-                className="border rounded px-3 py-2 outline-primary"
-                type="text"
-                value={cnic}
-                onChange={handleCnicChange}
-                placeholder="Enter 13-digit CNIC without dashes"
-                maxLength="13"
-                required
-              />
-              <p className="text-xs text-gray-500">
-                Enter exactly 13 digits without dashes (Current: {cnic.length}/13)
-              </p>
-              {cnic.length > 0 && cnic.length !== 13 && (
-                <p className="text-xs text-red-500">
-                  CNIC must be exactly 13 digits
-                </p>
-              )}
-              {cnic.length === 13 && validateCNIC(cnic) && (
-                <p className="text-xs text-green-500">
-                  ✓ Valid CNIC format
-                </p>
-              )}
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Phone Number *</p>
-              <input
-                type="tel"
-                placeholder="Phone Number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Date of Birth *</p>
-              <input
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Doctor Panel</h2>
+              <p className="text-xs text-gray-500">Medical Practice</p>
             </div>
           </div>
-          
-          <div className="w-full lg:flex-1 flex flex-col gap-4">
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Gender</p>
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-              >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Address Line 1 *</p>
-              <input
-                type="text"
-                placeholder="Address Line 1"
-                value={address1}
-                onChange={(e) => setAddress1(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Address Line 2</p>
-              <input
-                type="text"
-                placeholder="Address Line 2"
-                value={address2}
-                onChange={(e) => setAddress2(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-              />
-            </div>
-            
-            {/* WhatsApp Settings */}
-            <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <FaWhatsapp className="text-green-500 text-xl" />
-                  <div>
-                    <p className="font-medium text-gray-700">WhatsApp Notifications</p>
-                    <p className="text-sm text-gray-500">Enable WhatsApp notifications for this patient</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={whatsappEnabled}
-                    onChange={(e) => setWhatsappEnabled(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                </label>
-              </div>
-              
-              {whatsappEnabled && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    placeholder="e.g., +923001234567"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +92 for Pakistan)</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
         
         <button
-          className="bg-primary px-10 py-3 mt-6 text-white rounded-full flex items-center justify-center"
-          disabled={loading}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         >
-          {loading ? <ClipLoader size={24} color="#ffffff" /> : "Add Patient"}
+          <FaBars className="w-4 h-4" />
         </button>
       </div>
-      <div className="mt-4">
-        <Link to="/doctor/leave-requests" className="text-primary underline">
-          View Leave Requests
-        </Link>
+
+      {/* User Info - Fixed height */}
+      {!isCollapsed && (
+        <div className="p-4 bg-indigo-50 border-b border-gray-100 h-20 flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
+              D
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-indigo-900">Dr. User</p>
+              <p className="text-xs text-indigo-600">Specialist Doctor</p>
+            </div>
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-auto"></div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation - Scrollable area */}
+      <div className="flex-1 overflow-y-auto py-4">
+        <nav className="space-y-1">
+          {doctorNavItems.map((item, index) => renderNavItem(item, index))}
+        </nav>
+        
+        {/* Quick Stats - Only when expanded */}
+        {!isCollapsed && (
+          <div className="mx-4 mt-6 p-3 bg-gray-50 rounded-lg">
+            <h4 className="text-xs font-semibold text-gray-700 mb-2">Today's Overview</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Appointments</span>
+                <span className="text-xs font-medium text-gray-900">8</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Patients</span>
+                <span className="text-xs font-medium text-gray-900">6</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Pending</span>
+                <span className="text-xs font-medium text-orange-600">2</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </form>
+
+      {/* Footer - Fixed height */}
+      <div className="border-t border-gray-100 p-4 h-16 flex-shrink-0">
+        {!isCollapsed ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+              <span className="text-xs text-gray-500">Online</span>
+            </div>
+            <span className="text-xs text-gray-400">v2.1.0</span>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-export default AddPatient;
+export default DoctorSidebar;

@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import { DoctorContext } from "../../context/DoctorContext";
 import { toast } from "react-toastify";
-import { FaCalendarAlt, FaPlus, FaTrash, FaEye, FaClock } from "react-icons/fa";
+import { FaCalendarAlt, FaPlus, FaTrash, FaEye, FaClock, FaTimes } from "react-icons/fa";
 
 const DoctorLeaveRequest = () => {
   const { 
@@ -23,30 +23,27 @@ const DoctorLeaveRequest = () => {
   });
 
   const leaveTypes = [
-    { value: "vacation", label: "Vacation" },
-    { value: "sick", label: "Sick Leave" },
-    { value: "emergency", label: "Emergency" },
-    { value: "personal", label: "Personal" },
-    { value: "other", label: "Other" }
+    { value: "vacation", label: "Vacation", color: "bg-blue-100 text-blue-700" },
+    { value: "sick", label: "Sick Leave", color: "bg-red-100 text-red-700" },
+    { value: "emergency", label: "Emergency", color: "bg-orange-100 text-orange-700" },
+    { value: "personal", label: "Personal", color: "bg-purple-100 text-purple-700" },
+    { value: "other", label: "Other", color: "bg-gray-100 text-gray-700" }
   ];
 
   const statusColors = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800"
+    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    approved: "bg-green-100 text-green-800 border-green-200",
+    rejected: "bg-red-100 text-red-800 border-red-200"
   };
 
-  // Get today's date in YYYY-MM-DD format for min date
   const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   };
 
-  // Submit leave request
   const submitLeaveRequest = async (e) => {
     e.preventDefault();
     
-    // Validation
     if (!formData.fromDate || !formData.toDate || !formData.reason.trim()) {
       toast.error("Please fill all required fields");
       return;
@@ -67,13 +64,10 @@ const DoctorLeaveRequest = () => {
       return;
     }
 
-    // Check for overlapping requests
     const hasOverlap = leaveRequests.some(request => {
       if (request.status === 'rejected') return false;
-      
       const existingFrom = new Date(request.fromDate);
       const existingTo = new Date(request.toDate);
-      
       return (fromDate <= existingTo && toDate >= existingFrom);
     });
 
@@ -85,7 +79,6 @@ const DoctorLeaveRequest = () => {
     setLoading(true);
     try {
       const result = await requestLeave(formData);
-      
       if (result.success) {
         setFormData({
           fromDate: "",
@@ -102,12 +95,10 @@ const DoctorLeaveRequest = () => {
     }
   };
 
-  // Handle cancel leave request
   const handleCancelLeaveRequest = async (requestId) => {
     if (!window.confirm("Are you sure you want to cancel this leave request?")) {
       return;
     }
-
     try {
       await cancelLeaveRequest(requestId);
     } catch (error) {
@@ -115,7 +106,6 @@ const DoctorLeaveRequest = () => {
     }
   };
 
-  // Calculate number of days
   const calculateDays = (fromDate, toDate) => {
     const from = new Date(fromDate);
     const to = new Date(toDate);
@@ -124,7 +114,6 @@ const DoctorLeaveRequest = () => {
     return diffDays;
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -134,67 +123,99 @@ const DoctorLeaveRequest = () => {
     });
   };
 
-  // Load leave requests on component mount
+  const getTypeColor = (type) => {
+    return leaveTypes.find(t => t.value === type)?.color || "bg-gray-100 text-gray-700";
+  };
+
   useEffect(() => {
     if (dToken) {
-      console.log('Loading leave requests...');
       getLeaveRequests();
     }
   }, [dToken]);
 
   return (
-    <div className="m-5 max-w-6xl">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-medium">Leave Requests</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Leave Requests</h1>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-full hover:bg-primary-dark transition-colors"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <FaPlus />
           Request Leave
         </button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <div className="text-2xl font-bold text-gray-900">{leaveRequests?.length || 0}</div>
+          <div className="text-sm text-gray-500">Total Requests</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <div className="text-2xl font-bold text-yellow-600">
+            {leaveRequests?.filter(r => r.status === 'pending').length || 0}
+          </div>
+          <div className="text-sm text-gray-500">Pending</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <div className="text-2xl font-bold text-green-600">
+            {leaveRequests?.filter(r => r.status === 'approved').length || 0}
+          </div>
+          <div className="text-sm text-gray-500">Approved</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <div className="text-2xl font-bold text-red-600">
+            {leaveRequests?.filter(r => r.status === 'rejected').length || 0}
+          </div>
+          <div className="text-sm text-gray-500">Rejected</div>
+        </div>
+      </div>
+
       {/* Leave Request Form */}
       {showForm && (
-        <div className="bg-white rounded-lg border p-6 mb-6">
-          <h2 className="text-xl font-medium mb-4">New Leave Request</h2>
-          <form onSubmit={submitLeaveRequest}>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">New Leave Request</h2>
+            <button
+              onClick={() => setShowForm(false)}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <FaTimes />
+            </button>
+          </div>
+          
+          <form onSubmit={submitLeaveRequest} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  From Date *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">From Date *</label>
                 <input
                   type="date"
                   value={formData.fromDate}
                   onChange={(e) => setFormData({...formData, fromDate: e.target.value})}
                   min={getTodayDate()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  To Date *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">To Date *</label>
                 <input
                   type="date"
                   value={formData.toDate}
                   onChange={(e) => setFormData({...formData, toDate: e.target.value})}
                   min={formData.fromDate || getTodayDate()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Leave Type *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Leave Type *</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({...formData, type: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   required
                 >
                   {leaveTypes.map(type => (
@@ -205,10 +226,8 @@ const DoctorLeaveRequest = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration
-                </label>
-                <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                <div className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
                   {formData.fromDate && formData.toDate ? 
                     `${calculateDays(formData.fromDate, formData.toDate)} day(s)` : 
                     'Select dates'
@@ -216,33 +235,26 @@ const DoctorLeaveRequest = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reason *
-              </label>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reason *</label>
               <textarea
                 value={formData.reason}
                 onChange={(e) => setFormData({...formData, reason: e.target.value})}
                 placeholder="Please provide reason for leave request..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
                 rows={3}
                 required
               />
             </div>
-            <div className="flex gap-3 mt-6">
+            
+            <div className="flex gap-3">
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary-dark transition-colors disabled:opacity-70"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Submitting..." : "Submit Request"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 transition-colors"
-              >
-                Cancel
               </button>
             </div>
           </form>
@@ -250,120 +262,141 @@ const DoctorLeaveRequest = () => {
       )}
 
       {/* Leave Requests List */}
-      <div className="bg-white rounded-lg border">
-        <div className="p-6 border-b">
-          <h2 className="text-lg font-medium">Your Leave Requests</h2>
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Your Leave Requests</h2>
         </div>
         
         {!leaveRequests || leaveRequests.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <FaCalendarAlt className="mx-auto text-4xl mb-4 text-gray-300" />
-            <p>No leave requests found</p>
-            <p className="text-sm mt-2">Click "Request Leave" to submit your first leave request</p>
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaCalendarAlt className="text-gray-400 text-xl" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No leave requests found</h3>
+            <p className="text-gray-500">Click "Request Leave" to submit your first leave request</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Dates</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Duration</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Type</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Reason</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Status</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Submitted</th>
-                  <th className="text-left py-3 px-6 font-medium text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaveRequests.map((request, index) => (
-                  <tr key={request._id} className="border-t hover:bg-gray-50">
-                    <td className="py-3 px-6">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{formatDate(request.fromDate)}</span>
-                        <span className="text-sm text-gray-500">to {formatDate(request.toDate)}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-6">
-                      <span className="inline-flex items-center gap-1">
-                        <FaClock className="text-gray-400" />
-                        {calculateDays(request.fromDate, request.toDate)} day(s)
-                      </span>
-                    </td>
-                    <td className="py-3 px-6">
-                      <span className="capitalize">{request.type}</span>
-                    </td>
-                    <td className="py-3 px-6">
-                      <div className="max-w-xs">
-                        <p className="text-sm text-gray-700 truncate" title={request.reason}>
-                          {request.reason}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-6">
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-6">
-                      <span className="text-sm text-gray-500">
-                        {formatDate(request.submittedAt)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-6">
-                      <div className="flex items-center gap-2">
-                        {request.status === 'pending' && (
-                          <button
-                            onClick={() => handleCancelLeaveRequest(request._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                            title="Cancel Request"
-                          >
-                            <FaTrash />
-                          </button>
-                        )}
-                        {request.adminResponse && (
-                          <button
-                            onClick={() => toast.info(`Admin Response: ${request.adminResponse}`)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title="View Admin Response"
-                          >
-                            <FaEye />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+          <div className="max-h-96 overflow-y-auto">
+            {/* Desktop View */}
+            <div className="hidden lg:block">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="text-left py-4 px-6 font-medium text-gray-700">Dates</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-700">Duration</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-700">Type</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-700">Status</th>
+                    <th className="text-left py-4 px-6 font-medium text-gray-700">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {leaveRequests.map((request) => (
+                    <tr key={request._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                      <td className="py-4 px-6">
+                        <div>
+                          <p className="font-medium text-gray-900">{formatDate(request.fromDate)}</p>
+                          <p className="text-sm text-gray-500">to {formatDate(request.toDate)}</p>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="inline-flex items-center gap-1 text-gray-600">
+                          <FaClock className="text-xs" />
+                          {calculateDays(request.fromDate, request.toDate)} days
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(request.type)}`}>
+                          {request.type.charAt(0).toUpperCase() + request.type.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${statusColors[request.status]}`}>
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          {request.status === 'pending' && (
+                            <button
+                              onClick={() => handleCancelLeaveRequest(request._id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Cancel Request"
+                            >
+                              <FaTrash className="text-xs" />
+                            </button>
+                          )}
+                          {request.adminResponse && (
+                            <button
+                              onClick={() => toast.info(`Admin Response: ${request.adminResponse}`)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Admin Response"
+                            >
+                              <FaEye className="text-xs" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="lg:hidden">
+              {leaveRequests.map((request) => (
+                <div key={request._id} className="p-4 border-b border-gray-50 last:border-b-0">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {formatDate(request.fromDate)} - {formatDate(request.toDate)}
+                      </p>
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <FaClock />
+                        {calculateDays(request.fromDate, request.toDate)} days
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[request.status]}`}>
+                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(request.type)}`}>
+                      {request.type.charAt(0).toUpperCase() + request.type.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 mb-3">{request.reason}</p>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      Submitted: {formatDate(request.submittedAt)}
+                    </span>
+                    <div className="flex gap-2">
+                      {request.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancelLeaveRequest(request._id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <FaTrash className="text-xs" />
+                        </button>
+                      )}
+                      {request.adminResponse && (
+                        <button
+                          onClick={() => toast.info(`Admin Response: ${request.adminResponse}`)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <FaEye className="text-xs" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-      </div>
-
-      {/* Statistics */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Total Requests</div>
-          <div className="text-2xl font-semibold text-gray-900">{leaveRequests.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Pending</div>
-          <div className="text-2xl font-semibold text-yellow-600">
-            {leaveRequests.filter(r => r.status === 'pending').length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Approved</div>
-          <div className="text-2xl font-semibold text-green-600">
-            {leaveRequests.filter(r => r.status === 'approved').length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="text-sm text-gray-500">Rejected</div>
-          <div className="text-2xl font-semibold text-red-600">
-            {leaveRequests.filter(r => r.status === 'rejected').length}
-          </div>
-        </div>
       </div>
     </div>
   );

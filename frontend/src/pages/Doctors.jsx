@@ -27,9 +27,15 @@ const Doctors = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  useEffect(() => {
+  // In Doctors.js component
+useEffect(() => {
+  try {
     applyFilter();
-  }, [speciality, doctors]);
+  } catch (error) {
+    console.error("Error applying filter:", error);
+    setFilteredDoc([]);
+  }
+}, [speciality, doctors]);
 
   return (
     <div>

@@ -2,14 +2,12 @@ import React, { useContext, useState } from "react";
 import { AdminContext } from "../../context/AdminContext.jsx";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { FaWhatsapp } from "react-icons/fa";
-import { ClipLoader } from "react-spinners";
-import { assets } from "../../assets/assets.js";
+import { FaWhatsapp, FaUser, FaIdCard, FaPhone, FaCalendarAlt, FaMapMarkerAlt } from "react-icons/fa";
 
 const AddPatient = () => {
   const [patientImage, setPatientImage] = useState(false);
   const [name, setName] = useState("");
-  const [cnic, setCnic] = useState(""); // Changed from password to CNIC
+  const [cnic, setCnic] = useState("");
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("Male");
@@ -20,23 +18,16 @@ const AddPatient = () => {
   const { backendUrl, aToken } = useContext(AdminContext);
   const [loading, setLoading] = useState(false);
 
-  // CNIC validation function
   const validateCNIC = (cnicValue) => {
-    // Remove any dashes and spaces
     const cleanCNIC = cnicValue.replace(/[-\s]/g, '');
-    
-    // Check if it's exactly 13 digits
     if (!/^\d{13}$/.test(cleanCNIC)) {
       return false;
     }
-    
     return true;
   };
 
-  // Handle CNIC input change
   const handleCnicChange = (e) => {
     const value = e.target.value;
-    // Remove any non-digit characters and limit to 13 digits
     const cleanValue = value.replace(/\D/g, '').slice(0, 13);
     setCnic(cleanValue);
   };
@@ -48,15 +39,12 @@ const AddPatient = () => {
         return toast.error("Patient image not selected");
       }
       
-      // Validation
       if (!name || !cnic || !phone || !dob || !address1) {
         return toast.error("Please fill all required fields");
       }
 
-      // Validate CNIC
       if (!validateCNIC(cnic)) {
         return toast.error("CNIC must be exactly 13 digits without dashes");
-        return;
       }
 
       if (whatsappEnabled && !whatsappNumber) {
@@ -67,7 +55,7 @@ const AddPatient = () => {
       const formData = new FormData();
       formData.append("image", patientImage);
       formData.append("name", name);
-      formData.append("cnic", cnic); // Send CNIC instead of password
+      formData.append("cnic", cnic);
       formData.append("phone", phone);
       formData.append("dob", dob);
       formData.append("gender", gender);
@@ -78,25 +66,14 @@ const AddPatient = () => {
       const { data } = await axios.post(
         backendUrl + "/api/admin/add-patient",
         formData,
-        {
-          headers: {
-            aToken,
-          },
-        }
+        { headers: { aToken } }
       );
       
       if (data.success) {
         toast.success(data.message);
         // Reset form
-        setName("");
-        setCnic("");
-        setPhone("");
-        setDob("");
-        setGender("Male");
-        setAddress1("");
-        setAddress2("");
-        setWhatsappEnabled(false);
-        setWhatsappNumber("");
+        setName(""); setCnic(""); setPhone(""); setDob(""); setGender("Male");
+        setAddress1(""); setAddress2(""); setWhatsappEnabled(false); setWhatsappNumber("");
         setPatientImage(false);
       } else {
         toast.error(data.message);
@@ -110,173 +87,248 @@ const AddPatient = () => {
   };
 
   return (
-    <form className="m-5 w-full" onSubmit={(e) => onSubmitHandler(e)}>
-      <p className="mb-3 text-xl font-medium">Add Patient</p>
-      <div className="bg-white px-8 py-8 border rounded w-full max-w-4xl max-h-[80vh] overflow-y-scroll">
-        <div className="flex items-center gap-4 mb-8 text-gray-500">
-          <label htmlFor="patientImage">
-            <img
-              src={
-                patientImage ? URL.createObjectURL(patientImage) : assets.upload_area
-              }
-              alt=""
-              className="w-16 bg-gray-100 rounded-full cursor-pointer"
-            />
-          </label>
-          <input
-            onChange={(e) => setPatientImage(e.target.files[0])}
-            type="file"
-            id="patientImage"
-            className="hidden"
-          />
-          <p>
-            Upload Patient <br />
-            Picture
-          </p>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row items-start gap-10 text-gray-600">
-          <div className="w-full lg:flex-1 flex flex-col gap-4">
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Patient Name *</p>
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Add New Patient</h1>
+        <p className="text-gray-600">Register a new patient with complete information</p>
+      </div>
+
+      <form onSubmit={onSubmitHandler}>
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          
+          {/* Image Upload Section */}
+          <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+            <div className="flex items-center gap-6">
+              <label htmlFor="patientImage" className="cursor-pointer">
+                <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-500 bg-white flex items-center justify-center overflow-hidden transition-all">
+                  {patientImage ? (
+                    <img
+                      src={URL.createObjectURL(patientImage)}
+                      alt="Patient"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <FaUser className="mx-auto text-gray-400 text-2xl mb-1" />
+                      <span className="text-xs text-gray-500">Upload Photo</span>
+                    </div>
+                  )}
+                </div>
+              </label>
               <input
-                className="border rounded px-3 py-2 outline-primary"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full Name"
-                required
+                onChange={(e) => setPatientImage(e.target.files[0])}
+                type="file"
+                id="patientImage"
+                className="hidden"
+                accept="image/*"
               />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>CNIC (13 digits) *</p>
-              <input
-                className="border rounded px-3 py-2 outline-primary"
-                type="text"
-                value={cnic}
-                onChange={handleCnicChange}
-                placeholder="Enter 13-digit CNIC without dashes"
-                maxLength="13"
-                required
-              />
-              <p className="text-xs text-gray-500">
-                Enter exactly 13 digits without dashes (Current: {cnic.length}/13)
-              </p>
-              {cnic.length > 0 && cnic.length !== 13 && (
-                <p className="text-xs text-red-500">
-                  CNIC must be exactly 13 digits
-                </p>
-              )}
-              {cnic.length === 13 && validateCNIC(cnic) && (
-                <p className="text-xs text-green-500">
-                  ✓ Valid CNIC format
-                </p>
-              )}
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Phone Number *</p>
-              <input
-                type="tel"
-                placeholder="Phone Number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Date of Birth *</p>
-              <input
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
+              <div>
+                <h3 className="font-semibold text-gray-900">Patient Profile Picture</h3>
+                <p className="text-sm text-gray-600 mt-1">Upload a clear photo of the patient (JPG, PNG)</p>
+                <p className="text-sm text-gray-500 mt-1">Recommended: 400x400px, max 5MB</p>
+              </div>
             </div>
           </div>
-          
-          <div className="w-full lg:flex-1 flex flex-col gap-4">
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Gender</p>
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-              >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Address Line 1 *</p>
-              <input
-                type="text"
-                placeholder="Address Line 1"
-                value={address1}
-                onChange={(e) => setAddress1(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-                required
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <p>Address Line 2</p>
-              <input
-                type="text"
-                placeholder="Address Line 2"
-                value={address2}
-                onChange={(e) => setAddress2(e.target.value)}
-                className="border rounded px-3 py-2 outline-primary"
-              />
-            </div>
-            
-            {/* WhatsApp Settings */}
-            <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <FaWhatsapp className="text-green-500 text-xl" />
+
+          {/* Form Fields */}
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Personal Information */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                  <FaUser className="text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+                </div>
+                
+                <div className="space-y-4">
                   <div>
-                    <p className="font-medium text-gray-700">WhatsApp Notifications</p>
-                    <p className="text-sm text-gray-500">Enable WhatsApp notifications for this patient</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Patient Name *</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter patient's full name"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">CNIC (13 digits) *</label>
+                    <div className="relative">
+                      <FaIdCard className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={cnic}
+                        onChange={handleCnicChange}
+                        placeholder="1234567890123"
+                        maxLength="13"
+                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        required
+                      />
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-gray-500">Enter 13 digits without dashes ({cnic.length}/13)</p>
+                      {cnic.length > 0 && cnic.length !== 13 && (
+                        <p className="text-xs text-red-500">CNIC must be exactly 13 digits</p>
+                      )}
+                      {cnic.length === 13 && validateCNIC(cnic) && (
+                        <p className="text-xs text-green-500">✓ Valid CNIC format</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                    <div className="relative">
+                      <FaPhone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="03001234567"
+                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+                    <div className="relative">
+                      <FaCalendarAlt className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                    <select
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={whatsappEnabled}
-                    onChange={(e) => setWhatsappEnabled(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                </label>
               </div>
-              
-              {whatsappEnabled && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    placeholder="e.g., +923001234567"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md outline-primary"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +92 for Pakistan)</p>
+
+              {/* Address & Contact */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                  <FaMapMarkerAlt className="text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Address & Contact</h3>
                 </div>
-              )}
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 *</label>
+                    <input
+                      type="text"
+                      value={address1}
+                      onChange={(e) => setAddress1(e.target.value)}
+                      placeholder="Street address, house number"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
+                    <input
+                      type="text"
+                      value={address2}
+                      onChange={(e) => setAddress2(e.target.value)}
+                      placeholder="Area, city, postal code"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* WhatsApp Settings */}
+                  <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <FaWhatsapp className="text-green-500 text-xl" />
+                        <div>
+                          <p className="font-medium text-gray-700">WhatsApp Notifications</p>
+                          <p className="text-sm text-gray-500">Enable appointment reminders via WhatsApp</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={whatsappEnabled}
+                          onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
+                    </div>
+                    
+                    {whatsappEnabled && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+                        <input
+                          type="tel"
+                          value={whatsappNumber}
+                          onChange={(e) => setWhatsappNumber(e.target.value)}
+                          placeholder="+923001234567"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Include country code (+92 for Pakistan)</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="p-6 bg-gray-50 border-t border-gray-100">
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Adding Patient...
+                  </>
+                ) : (
+                  "Add Patient"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Reset all fields? This cannot be undone.")) {
+                    setName(""); setCnic(""); setPhone(""); setDob(""); setGender("Male");
+                    setAddress1(""); setAddress2(""); setWhatsappEnabled(false); setWhatsappNumber("");
+                    setPatientImage(false);
+                  }
+                }}
+                className="bg-gray-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Reset Form
+              </button>
             </div>
           </div>
         </div>
-        
-        <button
-          className="bg-primary px-10 py-3 mt-6 text-white rounded-full flex items-center justify-center"
-          disabled={loading}
-        >
-          {loading ? <ClipLoader size={24} color="#ffffff" /> : "Add Patient"}
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

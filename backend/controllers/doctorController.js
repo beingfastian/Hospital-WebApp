@@ -530,6 +530,34 @@ const cancelLeaveRequest = async (req, res) => {
   }
 };
 
+// Add this to your existing exports
+const getDoctorProfile = async (req, res) => {
+  try {
+    const doctorId = req.doctorId || req.body.docId;
+    const doctorData = await doctorModel.findById(doctorId).select("-password");
+    
+    if (!doctorData) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+    
+    // Fix image URL - only prepend server URL if it's not already a full URL
+    if (doctorData.image) {
+      // If image is already a full URL (starts with http), use it as is
+      if (doctorData.image.startsWith('http://') || doctorData.image.startsWith('https://')) {
+        // Do nothing, keep the URL as is
+      } 
+      // If it's a relative path, prepend the server URL
+      else {
+        doctorData.image = `${req.protocol}://${req.get('host')}/${doctorData.image}`;
+      }
+    }
+    
+    res.json({ success: true, doctorData });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 export {
   changeAvailabilities,
   doctorList,
@@ -543,4 +571,5 @@ export {
   requestLeave,
   listLeaveRequests,
   cancelLeaveRequest,
+  getDoctorProfile,
 };

@@ -12,9 +12,9 @@ const DoctorContextProvider = (props) => {
   const [dashData, setDashData] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [profileData, setProfileData] = useState(false);
-  const [leaveRequests, setLeaveRequests] = useState([]); // Add leave requests state
+  const [leaveRequests, setLeaveRequests] = useState([]); 
+  const [doctorData, setDoctorData] = useState(null); 
 
-  // Existing functions...
   const getAppointments = async () => {
     try {
       const { data } = await axios.get(
@@ -177,6 +177,30 @@ const DoctorContextProvider = (props) => {
       toast.error(error.response?.data?.message || 'Failed to cancel leave request');
     }
   };
+   // Get doctor profile data
+  const getDoctorProfile = async () => {
+    try {
+      const { data } = await axios.get(
+        backendUrl + "/api/doctor/get-profile",
+        { headers: { dToken } }
+      );
+      
+      if (data.success) {
+        setDoctorData(data.doctorData);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching doctor profile:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch profile");
+    }
+  };
+
+    useEffect(() => {
+    if (dToken) {
+      getDoctorProfile();
+    }
+  }, [dToken]);
 
   const value = {
     backendUrl,
@@ -199,6 +223,8 @@ const DoctorContextProvider = (props) => {
     requestLeave,
     getLeaveRequests,
     cancelLeaveRequest,
+    doctorData,
+    getDoctorProfile,
   };
   
   return (
