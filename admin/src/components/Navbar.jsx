@@ -3,116 +3,16 @@ import { assets } from "../assets/assets";
 import { useNavigate } from "react-router-dom";
 import { AdminContext } from "../context/AdminContext";
 import { DoctorContext } from "../context/DoctorContext";
+import { useNotifications } from "../context/NotificationContext";
 
 const Navbar = () => {
   const { aToken, setAToken } = useContext(AdminContext);
   const { dToken, setDToken, doctorData } = useContext(DoctorContext);
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Admin notifications
-  const adminNotifications = [
-    {
-      id: 1,
-      type: 'appointment',
-      title: 'New Appointment Request',
-      message: 'Dr. Smith has requested an appointment slot for tomorrow.',
-      time: '5 mins ago',
-      read: false,
-      priority: 'high'
-    },
-    {
-      id: 2,
-      type: 'doctor',
-      title: 'Doctor Registration',
-      message: 'New doctor Dr. Johnson has completed registration.',
-      time: '15 mins ago',
-      read: false,
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      type: 'system',
-      title: 'System Maintenance',
-      message: 'Scheduled maintenance will begin at 2:00 AM.',
-      time: '1 hour ago',
-      read: true,
-      priority: 'low'
-    },
-    {
-      id: 4,
-      type: 'payment',
-      title: 'Payment Processed',
-      message: 'Payment of $250 has been processed successfully.',
-      time: '2 hours ago',
-      read: true,
-      priority: 'medium'
-    },
-    {
-      id: 5,
-      type: 'alert',
-      title: 'Security Alert',
-      message: 'Multiple failed login attempts detected.',
-      time: '3 hours ago',
-      read: false,
-      priority: 'high'
-    }
-  ];
-
-  // Doctor notifications
-  const doctorNotifications = [
-    {
-      id: 1,
-      type: 'appointment',
-      title: 'New Patient Appointment',
-      message: 'John Doe has booked an appointment for 2:00 PM today.',
-      time: '10 mins ago',
-      read: false,
-      priority: 'high'
-    },
-    {
-      id: 2,
-      type: 'patient',
-      title: 'Patient Update',
-      message: 'Sarah Wilson has updated her medical history.',
-      time: '30 mins ago',
-      read: false,
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      type: 'leave',
-      title: 'Leave Request Update',
-      message: 'Your leave request for next week has been approved.',
-      time: '1 hour ago',
-      read: true,
-      priority: 'medium'
-    },
-    {
-      id: 4,
-      type: 'schedule',
-      title: 'Schedule Change',
-      message: 'Your Thursday schedule has been updated.',
-      time: '2 hours ago',
-      read: true,
-      priority: 'low'
-    },
-    {
-      id: 5,
-      type: 'reminder',
-      title: 'Upcoming Appointment',
-      message: 'Reminder: You have 3 appointments tomorrow.',
-      time: '3 hours ago',
-      read: false,
-      priority: 'medium'
-    }
-  ];
-
-  const [notifications, setNotifications] = useState(
-    aToken ? adminNotifications : doctorNotifications
-  );
 
   // Handle scroll effect
   useEffect(() => {
@@ -135,61 +35,44 @@ const Navbar = () => {
   }, [showNotifications]);
 
   const logout = () => {
+  // Clear tokens first
+  if (aToken) {
+    setAToken("");
+    localStorage.removeItem("aToken");
+  }
+  if (dToken) {
+    setDToken("");
+    localStorage.removeItem("dToken");
+  }
+  
+  setShowLogoutConfirm(false);
+  
+  // Navigate after clearing tokens
+  setTimeout(() => {
     navigate("/");
-    aToken && setAToken("");
-    dToken && setDToken("");
-    aToken && localStorage.removeItem("aToken");
-    dToken && localStorage.removeItem("dToken");
-    setShowLogoutConfirm(false);
-  };
-
-  const markAsRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, read: true }))
-    );
-  };
-
-  const deleteNotification = (notificationId) => {
-    setNotifications(prev => 
-      prev.filter(notif => notif.id !== notificationId)
-    );
-  };
+  }, 100);
+};
 
   const getNotificationIcon = (type) => {
     const iconProps = "w-5 h-5";
     switch(type) {
-      case 'appointment':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-      case 'doctor':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-      case 'patient':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-      case 'leave':
+      case 'leave_request':
         return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>;
-      case 'schedule':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-      case 'reminder':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5 5-5H15m-6 10v-5a6 6 0 1 0-12 0v5" /></svg>;
-      case 'system':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-      case 'payment':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" /></svg>;
-      case 'alert':
-        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>;
+      case 'leave_approved':
+        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+      case 'leave_rejected':
+        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+      case 'new_appointment':
+        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+      case 'appointment_completed':
+        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+      case 'new_patient':
+        return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
       default:
         return <svg className={iconProps} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5 5-5H15m-6 10v-5a6 6 0 1 0-12 0v5" /></svg>;
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
   const userType = aToken ? "Admin" : "Doctor";
   const userName = aToken ? "Administrator" : (doctorData ? doctorData.name : "Dr. User");
 
@@ -271,7 +154,7 @@ const Navbar = () => {
                           <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
                           {unreadCount > 0 && (
                             <button
-                              onClick={markAllAsRead}
+                              onClick={() => markAllAsRead(aToken ? 'admin' : 'doctor', dToken ? doctorData?._id : null)}
                               className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
                             >
                               Mark all read
@@ -288,11 +171,11 @@ const Navbar = () => {
                         {notifications.length > 0 ? (
                           notifications.map((notification) => (
                             <div
-                              key={notification.id}
+                              key={notification._id}
                               className={`p-4 border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer ${
                                 !notification.read ? 'bg-blue-50/30' : ''
                               }`}
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={() => markAsRead(notification._id)}
                             >
                               <div className="flex items-start space-x-3">
                                 {/* Icon */}
@@ -319,12 +202,12 @@ const Navbar = () => {
                                   </p>
                                   <div className="flex items-center justify-between mt-2">
                                     <p className="text-xs text-gray-500">
-                                      {notification.time}
+                                      {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        deleteNotification(notification.id);
+                                        deleteNotification(notification._id);
                                       }}
                                       className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                                     >
@@ -376,7 +259,7 @@ const Navbar = () => {
                     alt="Doctor Profile" 
                     className="w-10 h-10 rounded-full object-cover shadow-lg transition-all duration-300 hover:scale-105"
                     onError={(e) => {
-                      // Fallback to default avatar if image fails to load
+                      console.error("Image failed to load:", doctorData.image);
                       e.target.onerror = null;
                       e.target.style.display = 'none';
                       e.target.parentNode.innerHTML = `
@@ -462,36 +345,6 @@ const Navbar = () => {
               >
                 Sign Out
               </button>
-            </div>
-            {/* User Avatar */}
-            <div className="relative">
-              {dToken && doctorData && doctorData.image ? (
-                <img 
-                  src={doctorData.image} 
-                  alt="Doctor Profile" 
-                  className="w-10 h-10 rounded-full object-cover shadow-lg transition-all duration-300 hover:scale-105"
-                  onError={(e) => {
-                    console.error("Image failed to load:", doctorData.image);
-                    e.target.onerror = null;
-                    e.target.style.display = 'none';
-                    e.target.parentNode.innerHTML = `
-                      <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg transition-all duration-300 hover:scale-105 bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200">
-                        D
-                      </div>
-                    `;
-                  }}
-                />
-              ) : (
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg transition-all duration-300 hover:scale-105 ${
-                  aToken 
-                    ? 'bg-gradient-to-br from-emerald-500 to-green-600 shadow-emerald-200' 
-                    : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200'
-                }`}>
-                  {aToken ? 'A' : 'D'}
-                </div>
-              )}
-              {/* Online indicator */}
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
             </div>
           </div>
         </div>

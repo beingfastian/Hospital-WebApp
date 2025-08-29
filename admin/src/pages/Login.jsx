@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { assets } from "../assets/assets";
 import { AdminContext } from "../context/AdminContext";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
@@ -195,6 +195,11 @@ const Login = () => {
                 <span>Sign In</span>
               )}
             </button>
+            <div className="mt-4 text-right">
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+                Forgot Password?
+              </Link>
+            </div>
           </form>
         </div>
 

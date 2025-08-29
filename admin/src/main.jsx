@@ -7,7 +7,7 @@ import AppContextProvider from "./context/AppContext.jsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
+  
     <AdminContextProvider>
       <DoctorContextProvider>
         <AppContextProvider>
@@ -15,5 +15,4 @@ createRoot(document.getElementById("root")).render(
         </AppContextProvider>
       </DoctorContextProvider>
     </AdminContextProvider>
-  </BrowserRouter>
 );

@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import appointmentModel from "../model/appointmentModel.js";
 import userModel from "../model/userModel.js";
 import leaveRequestModel from "../model/leaveRequestModel.js";
+import { createNotification } from "./notificationController.js";
 import { 
   sendUserAppointmentConfirmation, 
   sendDoctorAppointmentNotification, 
@@ -196,44 +197,54 @@ const getAllLeaveRequests = async (req, res) => {
   }
 };
 
+// Updated approveLeaveRequest function
 const approveLeaveRequest = async (req, res) => {
   try {
     const { requestId, adminResponse } = req.body;
-
+    
     if (!requestId) {
       return res.json({ success: false, message: "Request ID is required" });
     }
-
+    
     const leaveRequest = await leaveRequestModel.findById(requestId);
+    
     if (!leaveRequest) {
       return res.json({ success: false, message: "Leave request not found" });
     }
-
+    
     if (leaveRequest.status !== 'pending') {
       return res.json({ success: false, message: "Leave request is not pending" });
     }
-
+    
     await leaveRequestModel.findByIdAndUpdate(requestId, {
       status: 'approved',
       adminResponse: adminResponse || 'Leave request approved',
-      approvedBy: 'admin', // You can store actual admin ID here
+      approvedBy: 'admin',
       approvedAt: new Date()
     });
-
+    
     // Get doctor info for notification
     const doctor = await doctorModel.findById(leaveRequest.doctorId);
     
-    // Send notification to doctor (optional)
-    try {
-      if (doctor && doctor.email) {
-        // You can implement email notification here
-        console.log(`Leave approved for Dr. ${doctor.name}`);
-      }
-    } catch (notificationError) {
-      console.error('Notification error:', notificationError);
-      // Don't fail the approval if notification fails
+    // Create notification for doctor
+    const notification = await createNotification(
+      leaveRequest.doctorId,     // recipient
+      'doctor',                  // recipientType
+      'admin',                   // sender
+      'admin',                   // senderType
+      'leave_approved',          // type
+      'Leave Request Approved',   // title
+      `Your leave request from ${new Date(leaveRequest.fromDate).toLocaleDateString()} to ${new Date(leaveRequest.toDate).toLocaleDateString()} has been approved.`, // message
+      'high',                    // priority
+      requestId                  // relatedId
+    );
+    
+    // Emit notification via Socket.IO to doctor
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`doctor_${leaveRequest.doctorId}`).emit('newNotification', notification);
     }
-
+    
     res.json({ success: true, message: "Leave request approved successfully" });
   } catch (error) {
     console.error(error);
@@ -242,46 +253,58 @@ const approveLeaveRequest = async (req, res) => {
 };
 
 // API to reject leave request
+// Updated rejectLeaveRequest function
 const rejectLeaveRequest = async (req, res) => {
   try {
     const { requestId, adminResponse } = req.body;
-
+    
     if (!requestId) {
       return res.json({ success: false, message: "Request ID is required" });
     }
-
+    
     if (!adminResponse || adminResponse.trim() === '') {
       return res.json({ success: false, message: "Rejection reason is required" });
     }
-
+    
     const leaveRequest = await leaveRequestModel.findById(requestId);
+    
     if (!leaveRequest) {
       return res.json({ success: false, message: "Leave request not found" });
     }
-
+    
     if (leaveRequest.status !== 'pending') {
       return res.json({ success: false, message: "Leave request is not pending" });
     }
-
+    
     await leaveRequestModel.findByIdAndUpdate(requestId, {
       status: 'rejected',
       adminResponse,
       approvedBy: 'admin',
       approvedAt: new Date()
     });
-
+    
     // Get doctor info for notification
     const doctor = await doctorModel.findById(leaveRequest.doctorId);
     
-    // Send notification to doctor (optional)
-    try {
-      if (doctor && doctor.email) {
-        console.log(`Leave rejected for Dr. ${doctor.name}: ${adminResponse}`);
-      }
-    } catch (notificationError) {
-      console.error('Notification error:', notificationError);
+    // Create notification for doctor
+    const notification = await createNotification(
+      leaveRequest.doctorId,     // recipient
+      'doctor',                  // recipientType
+      'admin',                   // sender
+      'admin',                   // senderType
+      'leave_rejected',          // type
+      'Leave Request Rejected',   // title
+      `Your leave request has been rejected. Reason: ${adminResponse}`, // message
+      'high',                    // priority
+      requestId                  // relatedId
+    );
+    
+    // Emit notification via Socket.IO to doctor
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`doctor_${leaveRequest.doctorId}`).emit('newNotification', notification);
     }
-
+    
     res.json({ success: true, message: "Leave request rejected successfully" });
   } catch (error) {
     console.error(error);
@@ -370,25 +393,24 @@ const addPatient = async (req, res) => {
       whatsappEnabled,
       whatsappNumber
     } = req.body;
-
     const imageFile = req.file;
-
-    // Validate required fields (remove email/password)
+    
+    // Validate required fields
     if (!name || !cnic || !phone || !dob || !address) {
       return res.json({ success: false, message: "Please fill all required fields" });
     }
-
-    // Validate CNIC (must be 13 digits)
+    
+    // Validate CNIC
     if (!/^\d{13}$/.test(cnic)) {
       return res.json({ success: false, message: "CNIC must be exactly 13 digits" });
     }
-
-    // Check if user already exists by CNIC or phone
+    
+    // Check if user already exists
     const existingUser = await userModel.findOne({ $or: [{ cnic }, { phone }] });
     if (existingUser) {
       return res.json({ success: false, message: "Patient with this CNIC or phone already exists" });
     }
-
+    
     // Upload image if provided
     let imageUrl = null;
     if (imageFile) {
@@ -397,7 +419,7 @@ const addPatient = async (req, res) => {
       });
       imageUrl = imageUpload.secure_url;
     }
-
+    
     const patientData = {
       name,
       cnic,
@@ -409,16 +431,36 @@ const addPatient = async (req, res) => {
       whatsappNumber: whatsappNumber || phone,
       ...(imageUrl && { image: imageUrl })
     };
-
+    
     const newPatient = new userModel(patientData);
     await newPatient.save();
-
+    
+    // Create notification for admin
+    const notification = await createNotification(
+      'admin',                    // recipient
+      'admin',                    // recipientType
+      'admin',                   // sender
+      'admin',                   // senderType
+      'new_patient',             // type
+      'New Patient Registered',  // title
+      `New patient ${name} has been registered in the system.`, // message
+      'medium',                  // priority
+      newPatient._id.toString()  // relatedId
+    );
+    
+    // Emit notification via Socket.IO to admin
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin').emit('newNotification', notification);
+    }
+    
     res.json({ success: true, message: "Patient added successfully" });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
+
 
 // API to get all patients
 const getAllPatients = async (req, res) => {
